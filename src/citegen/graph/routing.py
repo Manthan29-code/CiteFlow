@@ -21,10 +21,14 @@ def review_gate(state: CitationState) -> Literal["format_bibitem", "mark_unresol
     return "format_bibitem"
 
 
-def validate_input_router(state: CitationState) -> Literal["extract_pdf_text", "mark_unresolved"]:
-    """Route after PDF validation."""
+def validate_input_router(
+    state: CitationState,
+) -> Literal["fan_out_search", "extract_pdf_text", "mark_unresolved"]:
+    """Route after input validation."""
     if state.get("status") == "failed":
         return "mark_unresolved"
+    if state.get("input_title") and not state.get("input_pdf_path"):
+        return "fan_out_search"
     return "extract_pdf_text"
 
 

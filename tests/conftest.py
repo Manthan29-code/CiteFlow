@@ -39,3 +39,11 @@ def crossref_similar_titles_json() -> dict:
 def crossref_preprint_pair_json() -> dict:
     with open(FIXTURES_DIR / "crossref_preprint_pair.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@pytest.fixture(autouse=True)
+def reset_settings(monkeypatch):
+    from citegen.config import settings
+
+    monkeypatch.setattr(settings, "openalex_api_key", None)
+

@@ -158,8 +158,47 @@ async def run_batch_titles(
 
 
 # =========================================================================
-# Part 2: PDF Processing
+# Part 2: PDF & Interactive Title Processing
 # =========================================================================
+
+
+async def process_single_title_interactive(
+    title: str,
+    interactive: bool = True,
+    compiled_graph: Any = None,
+    thread_id: Optional[str] = None,
+    prompt_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+) -> CitationState:
+    """
+    Run a single title through the Part 2 graph with interactive human review support.
+    """
+    if compiled_graph is None:
+        compiled_graph = get_compiled_part2_graph()
+
+    clean_title = title.strip()
+    tid = thread_id or f"title-{uuid.uuid4().hex[:8]}"
+    config = {"configurable": {"thread_id": tid}}
+
+    initial_state: CitationState = {
+        "input_title": clean_title,
+        "title_confirmed": True,
+        "interactive": interactive,
+        "errors": [],
+    }
+
+    result = await compiled_graph.ainvoke(initial_state, config)
+
+    # Human-in-the-loop interrupt resolution loop
+    while "__interrupt__" in result:
+        if not interactive:
+            break
+        interrupt_item = result["__interrupt__"][0]
+        payload = interrupt_item.value
+        ask_func = prompt_fn or cli_prompt_for
+        answer = ask_func(payload)
+        result = await compiled_graph.ainvoke(Command(resume=answer), config)
+
+    return result
 
 
 async def process_single_pdf(
@@ -200,8 +239,17 @@ async def process_single_pdf(
     return result
 
 
+def _is_pdf_item(item: Any) -> bool:
+    if isinstance(item, Path):
+        return item.suffix.lower() == ".pdf" or item.is_file()
+    if isinstance(item, str):
+        p = Path(item)
+        return (p.is_file() and p.suffix.lower() == ".pdf") or (not p.is_file() and item.lower().endswith(".pdf"))
+    return False
+
+
 async def run_batch_pdfs(
-    pdf_paths: List[Path],
+    pdf_paths: List[Any],
     output_path: Path,
     interactive: bool = True,
     standalone: bool = True,
@@ -213,7 +261,7 @@ async def run_batch_pdfs(
     prompt_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """
-    Process a batch of PDFs through the Part 2 graph.
+    Process a batch of PDFs or article titles through the Part 2 graph.
     Handles Ctrl+C cleanly, runs sequential or concurrent, resolves citation keys,
     and exports LaTeX.
     """
@@ -227,62 +275,91 @@ async def run_batch_pdfs(
 
     compiled_graph = get_compiled_part2_graph()
     results: List[CitationState] = []
-    skipped_paths: List[Path] = []
+    skipped_paths: List[Any] = []
+
+    async def _dispatch_item(item: Any, is_interact: bool) -> CitationState:
+        if _is_pdf_item(item):
+            return await process_single_pdf(
+                pdf_path=Path(item),
+                interactive=is_interact,
+                compiled_graph=compiled_graph,
+                prompt_fn=prompt_fn,
+            )
+        else:
+            return await process_single_title_interactive(
+                title=str(item),
+                interactive=is_interact,
+                compiled_graph=compiled_graph,
+                prompt_fn=prompt_fn,
+            )
 
     try:
         if interactive or concurrency <= 1:
             for p in pdf_paths:
                 try:
-                    res = await process_single_pdf(
-                        pdf_path=p,
-                        interactive=interactive,
-                        compiled_graph=compiled_graph,
-                        prompt_fn=prompt_fn,
-                    )
+                    res = await _dispatch_item(p, interactive)
                     results.append(res)
                 except Exception as e:
-                    results.append(
-                        {
-                            "input_pdf_path": str(p),
-                            "input_title": p.stem,
-                            "status": "failed",
-                            "validation_errors": [str(e)],
-                            "errors": [{"type": "unhandled_exception", "message": str(e)}],
-                        }
-                    )
+                    item_title = p.stem if isinstance(p, Path) else str(p)
+                    fail_dict: Dict[str, Any] = {
+                        "input_title": item_title,
+                        "status": "failed",
+                        "validation_errors": [str(e)],
+                        "errors": [{"type": "unhandled_exception", "message": str(e)}],
+                    }
+                    if _is_pdf_item(p):
+                        fail_dict["input_pdf_path"] = str(p)
+                    results.append(fail_dict)
         else:
             # Concurrent execution in non-interactive mode
             sem = asyncio.Semaphore(concurrency)
 
-            async def _worker(p: Path) -> CitationState:
+            async def _worker(p: Any) -> CitationState:
                 async with sem:
                     try:
-                        return await process_single_pdf(
-                            pdf_path=p,
-                            interactive=False,
-                            compiled_graph=compiled_graph,
-                            prompt_fn=prompt_fn,
-                        )
+                        return await _dispatch_item(p, False)
                     except Exception as e:
-                        return {
-                            "input_pdf_path": str(p),
-                            "input_title": p.stem,
+                        item_title = p.stem if isinstance(p, Path) else str(p)
+                        fail_dict: Dict[str, Any] = {
+                            "input_title": item_title,
                             "status": "failed",
                             "validation_errors": [str(e)],
                             "errors": [{"type": "unhandled_exception", "message": str(e)}],
                         }
+                        if _is_pdf_item(p):
+                            fail_dict["input_pdf_path"] = str(p)
+                        return fail_dict
 
             tasks = [_worker(p) for p in pdf_paths]
             results = await asyncio.gather(*tasks)
 
     except (KeyboardInterrupt, asyncio.CancelledError):
-        # Gracefully handle Ctrl+C: remaining PDFs marked skipped
-        processed_paths = {
-            Path(r.get("input_pdf_path", "")).resolve() for r in results if r.get("input_pdf_path")
-        }
+        # Gracefully handle Ctrl+C: remaining items marked skipped
+        processed_identifiers = set()
+        for r in results:
+            if r.get("input_pdf_path"):
+                try:
+                    processed_identifiers.add(Path(r["input_pdf_path"]).resolve())
+                except Exception:
+                    pass
+                processed_identifiers.add(r["input_pdf_path"])
+            if r.get("input_title"):
+                processed_identifiers.add(r["input_title"])
+
         for p in pdf_paths:
-            if p.resolve() not in processed_paths:
+            is_processed = False
+            if isinstance(p, Path):
+                try:
+                    if p.resolve() in processed_identifiers or str(p) in processed_identifiers:
+                        is_processed = True
+                except Exception:
+                    pass
+            elif str(p) in processed_identifiers:
+                is_processed = True
+
+            if not is_processed:
                 skipped_paths.append(p)
+
 
     # Separate accepted vs unresolved/failed
     accepted_items: List[Tuple[ArticleMetadata, str, CitationState]] = []

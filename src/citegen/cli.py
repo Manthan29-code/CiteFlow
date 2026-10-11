@@ -318,8 +318,15 @@ def check_command():
 
 @app.command(name="run")
 def run_command(
-    paths: List[Path] = typer.Argument(..., help="PDF file(s) or directories to process"),
-    output: Path = typer.Option(..., "--output", "-o", help="Destination path for .tex file"),
+    inputs: Optional[List[str]] = typer.Argument(
+        None, help="Article title(s), PDF file(s), or directories to process"
+    ),
+    title: Optional[List[str]] = typer.Option(
+        None, "--title", "-t", help="Article title(s) to process"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Destination path for .tex file (default: output/references.tex)"
+    ),
     force: bool = typer.Option(False, "--force", help="Force overwrite existing output file"),
     interactive: bool = typer.Option(
         True,
@@ -353,7 +360,7 @@ def run_command(
         1, "--concurrency", help="Number of concurrent PDF workers (only with --no-interactive)"
     ),
 ):
-    """Process one or more PDFs, confirm titles, review metadata, and export .tex."""
+    """Process article titles or PDFs, review metadata interactively, and export .tex."""
     # Concurrency rule
     if interactive and concurrency > 1:
         console.print(
@@ -361,33 +368,67 @@ def run_command(
         )
         raise typer.Exit(code=2)
 
+    # Resolve output path
+    output_specified = output is not None
+    target_output: Path = (
+        output.resolve() if output is not None else (settings.output_dir / "references.tex").resolve()
+    )
+
+    # Ensure output parent directory exists
+    target_output.parent.mkdir(parents=True, exist_ok=True)
+
     # Output file collision
-    if output.exists() and not force:
+    if output_specified and target_output.exists() and not force:
         console.print(
             f"[bold red]Error:[/] Output file '{output}' already exists. Use --force to overwrite."
         )
         raise typer.Exit(code=2)
 
-    # Gather PDF paths
-    collected_pdfs: List[Path] = []
-    for p in paths:
-        if p.is_file():
-            if p.suffix.lower() == ".pdf":
-                collected_pdfs.append(p)
-            else:
-                # Still include so validator checks it and reports invalid extension
-                collected_pdfs.append(p)
-        elif p.is_dir():
-            pattern = "**/*.pdf" if recursive else "*.pdf"
-            found = list(p.glob(pattern))
-            collected_pdfs.extend(found)
-        else:
-            # Missing file: include so validator can report it
-            collected_pdfs.append(p)
+    target_force = force if output_specified else True
 
-    if not collected_pdfs:
-        console.print("[bold red]Usage error:[/] No PDF files found in specified paths.")
-        raise typer.Exit(code=2)
+    # Gather inputs
+    collected_inputs: List[Union[str, Path]] = []
+    if title:
+        collected_inputs.extend(title)
+
+    if inputs:
+        for item in inputs:
+            p = Path(item)
+            if p.is_dir():
+                pattern = "**/*.pdf" if recursive else "*.pdf"
+                found = list(p.glob(pattern))
+                collected_inputs.extend(found)
+            elif p.is_file() and p.suffix.lower() == ".pdf":
+                collected_inputs.append(p)
+            elif p.is_file():
+                # Invalid extension file on disk (pass Path so validation detects it)
+                collected_inputs.append(p)
+            elif item.lower().endswith(".pdf"):
+                # Missing pdf path: pass Path so validation reports not found
+                collected_inputs.append(p)
+            else:
+                # Direct title string
+                collected_inputs.append(item)
+
+    if not collected_inputs:
+        if inputs:
+            # inputs was provided (e.g. empty directory), but yielded no files
+            console.print("[bold red]Usage error:[/] No PDF files or titles found in specified paths.")
+            raise typer.Exit(code=2)
+        elif interactive:
+            try:
+                prompt_title = console.input("\n[bold cyan]Enter article title:[/] ").strip()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[yellow]Aborted.[/]")
+                raise typer.Exit(code=1)
+            if prompt_title:
+                collected_inputs.append(prompt_title)
+            else:
+                console.print("[yellow]No title entered. Exiting.[/]")
+                raise typer.Exit(code=1)
+        else:
+            console.print("[bold red]Usage error:[/] No input titles or PDF files specified.")
+            raise typer.Exit(code=2)
 
     # Apply configuration overrides
     if grobid_url:
@@ -398,11 +439,11 @@ def run_command(
     try:
         exit_code, results = asyncio.run(
             run_batch_pdfs(
-                pdf_paths=collected_pdfs,
-                output_path=output,
+                pdf_paths=collected_inputs,
+                output_path=target_output,
                 interactive=interactive,
                 standalone=standalone,
-                force=force,
+                force=target_force,
                 report_path=report,
                 json_path=json_path,
                 concurrency=concurrency,
@@ -413,12 +454,12 @@ def run_command(
         console.print(f"[bold red]Error:[/] {exc}")
         raise typer.Exit(code=2)
     except Exception as exc:
-        console.print(f"[bold red]Unexpected error during PDF processing:[/] {exc}")
+        console.print(f"[bold red]Unexpected error during processing:[/] {exc}")
         raise typer.Exit(code=1)
 
     # Summary table
-    summary_table = Table(title="PDF Processing Summary", show_header=True)
-    summary_table.add_column("PDF / Title", style="cyan")
+    summary_table = Table(title="Processing Summary", show_header=True)
+    summary_table.add_column("Input / Title", style="cyan")
     summary_table.add_column("Status", style="bold")
     summary_table.add_column("Reason / Details", style="white")
 
@@ -438,6 +479,11 @@ def run_command(
         )
 
     console.print(summary_table)
-    console.print(f"\n[bold green]Output written to:[/] {output}")
+
+    if len(results) == 1 and results[0].get("bibitem"):
+        console.print(f"\n[bold green]Draft Bibitem:[/] {results[0]['bibitem']}")
+
+    console.print(f"\n[bold green]Output written to:[/] {target_output}")
 
     raise typer.Exit(code=exit_code)
+

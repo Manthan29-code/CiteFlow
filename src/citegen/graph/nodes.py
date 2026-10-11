@@ -22,13 +22,27 @@ from citegen.providers.openalex import fetch_openalex_candidates
 
 
 def validate_input_node(state: CitationState) -> Dict[str, Any]:
-    """Validate input PDF file exists, has valid header, size, integrity, etc."""
+    """Validate input: either an input title or a PDF file."""
+    if state.get("input_title"):
+        clean_title = state["input_title"].strip()
+        if not clean_title:
+            return {
+                "status": "failed",
+                "validation_errors": ["Input title cannot be empty"],
+                "errors": [{"type": "input_validation", "message": "Input title cannot be empty"}],
+            }
+        return {
+            "status": "validating",
+            "input_title": clean_title,
+            "title_confirmed": True,
+        }
+
     pdf_path = state.get("input_pdf_path")
     if not pdf_path:
         return {
             "status": "failed",
-            "validation_errors": ["No input PDF path provided"],
-            "errors": [{"type": "pdf_validation", "message": "No input PDF path provided"}],
+            "validation_errors": ["No input title or PDF path provided"],
+            "errors": [{"type": "input_validation", "message": "No input title or PDF path provided"}],
         }
 
     try:

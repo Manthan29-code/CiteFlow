@@ -112,6 +112,7 @@ def build_part2_graph() -> StateGraph:
         "validate_input",
         validate_input_router,
         {
+            "fan_out_search": "fan_out_search",
             "extract_pdf_text": "extract_pdf_text",
             "mark_unresolved": "mark_unresolved",
         },
