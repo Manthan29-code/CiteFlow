@@ -220,6 +220,8 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
             return {
                 "review_required": False,
                 "validation_errors": [],
+                "conflicts": [],
+                "match_status": "matched",
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }
@@ -243,15 +245,18 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
         }
 
     if isinstance(user_response, str):
-        if user_response.strip().lower() == "skip":
+        cleaned = user_response.strip().lower()
+        if cleaned in ("s", "skip"):
             return {
                 "status": "skipped",
                 "validation_errors": ["User skipped metadata review"],
             }
-        if user_response.strip().lower() == "accept":
+        if cleaned in ("a", "accept"):
             return {
                 "review_required": False,
                 "validation_errors": [],
+                "conflicts": [],
+                "match_status": "matched",
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }

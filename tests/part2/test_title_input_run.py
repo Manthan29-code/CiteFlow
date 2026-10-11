@@ -81,3 +81,25 @@ def test_cli_run_empty_terminal_prompt_exits():
     )
     assert result.exit_code == 1
     assert "No title entered. Exiting." in result.output
+
+
+@respx.mock
+def test_cli_run_interactive_user_review_accept(crossref_masheyeva_json, tmp_path: Path, monkeypatch):
+    respx.get(CROSSREF_API_URL).respond(status_code=200, json=crossref_masheyeva_json)
+    respx.get(OPENALEX_API_URL).respond(status_code=200, json={"results": []})
+
+    out_file = tmp_path / "output" / "references.tex"
+    monkeypatch.setattr(settings, "output_dir", tmp_path / "output")
+
+    # Enter 'a' to accept ambiguous metadata
+    result = runner.invoke(
+        app,
+        ["run", "Experimental and numerical study of the ionization-attachment instability"],
+        input="a\n",
+    )
+
+    assert result.exit_code == 0
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+    assert r"\bibitem{Masheyeva2025}" in content
+
