@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "citegen"
+version = "0.1.0"
+description = "Deterministic scholarly citation metadata to LaTeX bibitem generator"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph",
+    "langchain-core",
+    "httpx",
+    "pydantic",
+    "typer",
+    "rich",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "respx",
+    "ruff",
+]
+pdf = [
+    "pymupdf",
+]
+ocr = [
+    "pytesseract",
+]
+
+[project.scripts]
+citegen = "citegen.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "part1: marks tests as part of Part 1 test suite",
+    "part2: marks tests as part of Part 2 test suite",
+    "live: marks tests calling live APIs (skipped by default)",
+    "ocr: marks tests requiring OCR/Tesseract",
+]
+addopts = "-m 'not live'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

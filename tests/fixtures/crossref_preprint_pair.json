@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "message": {
+    "total-results": 2,
+    "items": [
+      {
+        "title": ["Kinetic simulations of magnetic reconnection"],
+        "DOI": "10.48550/arXiv.2201.00001",
+        "type": "posted-content",
+        "subtype": "preprint",
+        "issued": {"date-parts": [[2022]]},
+        "author": [{"family": "Doe", "given": "Jane"}],
+        "container-title": ["arXiv"],
+        "URL": "https://doi.org/10.48550/arXiv.2201.00001"
+      },
+      {
+        "title": ["Kinetic simulations of magnetic reconnection"],
+        "DOI": "10.1063/5.0089123",
+        "type": "journal-article",
+        "issued": {"date-parts": [[2023]]},
+        "author": [{"family": "Doe", "given": "Jane"}],
+        "container-title": ["Physics of Plasmas"],
+        "volume": "30",
+        "page": "012105",
+        "URL": "https://doi.org/10.1063/5.0089123"
+      }
+    ]
+  }
+}

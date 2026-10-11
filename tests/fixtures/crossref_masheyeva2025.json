@@ -1,0 +1,34 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "total-results": 1,
+    "items": [
+      {
+        "publisher": "IOP Publishing",
+        "issue": "4",
+        "short-container-title": ["Plasma Sources Sci. Technol."],
+        "DOI": "10.1088/1361-6595/adcb6b",
+        "type": "journal-article",
+        "page": "045017",
+        "article-number": "045017",
+        "source": "Crossref",
+        "title": ["Investigation of atmospheric pressure plasma jet properties"],
+        "volume": "34",
+        "author": [
+          {"given": "R.", "family": "Masheyeva", "sequence": "first"},
+          {"given": "A.", "family": "Second", "sequence": "additional"},
+          {"given": "B.", "family": "Third", "sequence": "additional"},
+          {"given": "C.", "family": "Fourth", "sequence": "additional"},
+          {"given": "D.", "family": "Fifth", "sequence": "additional"},
+          {"given": "E.", "family": "Sixth", "sequence": "additional"},
+          {"given": "F.", "family": "Seventh", "sequence": "additional"},
+          {"given": "G.", "family": "Eighth", "sequence": "additional"}
+        ],
+        "container-title": ["Plasma Sources Science and Technology"],
+        "issued": {"date-parts": [[2025, 4, 1]]},
+        "URL": "https://doi.org/10.1088/1361-6595/adcb6b"
+      }
+    ]
+  }
+}

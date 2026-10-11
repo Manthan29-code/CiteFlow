@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "count": 1,
+    "page": 1,
+    "per_page": 5
+  },
+  "results": [
+    {
+      "id": "https://openalex.org/W2104505374",
+      "doi": "https://doi.org/10.1103/physrevlett.112.205003",
+      "title": "Firehose and mirror instabilities in a collisionless plasma",
+      "display_name": "Firehose and mirror instabilities in a collisionless plasma",
+      "publication_year": 2014,
+      "publication_date": "2014-05-20",
+      "type": "article",
+      "authorships": [
+        {
+          "author_position": "first",
+          "author": {
+            "id": "https://openalex.org/A5000000001",
+            "display_name": "Matthew W. Kunz"
+          }
+        },
+        {
+          "author_position": "middle",
+          "author": {
+            "id": "https://openalex.org/A5000000002",
+            "display_name": "Alexander A. Schekochihin"
+          }
+        },
+        {
+          "author_position": "last",
+          "author": {
+            "id": "https://openalex.org/A5000000003",
+            "display_name": "James M. Stone"
+          }
+        }
+      ],
+      "primary_location": {
+        "source": {
+          "id": "https://openalex.org/S100000001",
+          "display_name": "Physical Review Letters",
+          "type": "journal"
+        },
+        "is_oa": false
+      },
+      "biblio": {
+        "volume": "112",
+        "issue": "20",
+        "first_page": "205003",
+        "last_page": "205003"
+      }
+    }
+  ]
+}

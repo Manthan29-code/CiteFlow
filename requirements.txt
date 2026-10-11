@@ -1,0 +1,18 @@
+# Core
+langgraph
+langchain-core
+httpx
+pydantic
+typer
+rich
+python-dotenv
+
+# Dev & Testing
+pytest
+pytest-asyncio
+respx
+ruff
+
+# PDF & OCR (Part 2)
+pymupdf
+pytesseract

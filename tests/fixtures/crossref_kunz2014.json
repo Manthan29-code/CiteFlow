@@ -1,0 +1,63 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "total-results": 1,
+    "items": [
+      {
+        "indexed": {"date-parts": [[2024, 1, 1]]},
+        "reference-count": 45,
+        "publisher": "American Physical Society (APS)",
+        "issue": "20",
+        "content-domain": {"domain": [], "crossmark-restriction": false},
+        "short-container-title": ["Phys. Rev. Lett."],
+        "published-print": {"date-parts": [[2014, 5, 20]]},
+        "DOI": "10.1103/PhysRevLett.112.205003",
+        "type": "journal-article",
+        "created": {"date-parts": [[2014, 5, 20]]},
+        "page": "205003",
+        "source": "Crossref",
+        "is-referenced-by-count": 120,
+        "title": ["Firehose and mirror instabilities in a collisionless plasma"],
+        "prefix": "10.1103",
+        "volume": "112",
+        "author": [
+          {
+            "given": "M. W.",
+            "family": "Kunz",
+            "sequence": "first",
+            "affiliation": []
+          },
+          {
+            "given": "A. A.",
+            "family": "Schekochihin",
+            "sequence": "additional",
+            "affiliation": []
+          },
+          {
+            "given": "J. M.",
+            "family": "Stone",
+            "sequence": "additional",
+            "affiliation": []
+          }
+        ],
+        "member": "435",
+        "container-title": ["Physical Review Letters"],
+        "original-title": [],
+        "language": "en",
+        "link": [],
+        "deposited": {"date-parts": [[2014, 5, 20]]},
+        "score": 1.0,
+        "subtitle": [],
+        "short-title": [],
+        "issued": {"date-parts": [[2014, 5, 20]]},
+        "references-count": 45,
+        "journal-issue": {"issue": "20"},
+        "URL": "https://doi.org/10.1103/PhysRevLett.112.205003",
+        "relation": {},
+        "ISSN": ["0031-9007", "1079-7114"],
+        "issn-type": [{"value": "0031-9007", "type": "print"}, {"value": "1079-7114", "type": "electronic"}]
+      }
+    ]
+  }
+}
