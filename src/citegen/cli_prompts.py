@@ -109,23 +109,64 @@ def prompt_user_review(payload: Dict[str, Any], input_func=None) -> Dict[str, An
 
     if val_errors or conflicts:
         console.print("\n[bold red]Issues & Warnings:[/]")
+        # Print non-duplicate validation errors
         for err in val_errors:
-            console.print(f"  [red]• {err}[/]")
+            if not any(f"Conflict in field '{c.get('field')}'" in err for c in conflicts):
+                console.print(f"  [red]• {err}[/]")
         for c in conflicts:
-            console.print(
-                f"  [yellow]• Conflict in {c.get('field', 'field')}: {c.get('reason', '')}[/]"
-            )
+            field = c.get("field", "field")
+            reason = c.get("reason", "")
+            cr_val = c.get("crossref")
+            oa_val = c.get("openalex")
+            if cr_val is not None and oa_val is not None:
+                console.print(f"  [yellow]• Conflict in '{field}': {reason}[/]")
+                console.print(f"      [1] CrossRef: [bold]{cr_val}[/]")
+                console.print(f"      [2] OpenAlex: [bold]{oa_val}[/]")
+            else:
+                console.print(f"  [yellow]• Conflict in '{field}': {reason}[/]")
 
-    console.print(
-        "\n[dim]Options: [bold green]'a'[/] to accept as-is, [bold cyan]'e'[/] to edit a field, [bold red]'s'[/] to skip.[/dim]"
+    has_resolvable = any(
+        c.get("crossref") is not None and c.get("openalex") is not None for c in conflicts
     )
-    action = ask("[bold]Select an action [a/e/s]:[/] ").strip().lower()
+
+    if has_resolvable:
+        console.print(
+            "\n[dim]Options: [bold green]'a'[/] to accept as-is, [bold yellow]'r'[/] to resolve conflict, [bold cyan]'e'[/] to edit a field, [bold red]'s'[/] to skip.[/dim]"
+        )
+        action = ask("[bold]Select an action [a/r/e/s]:[/] ").strip().lower()
+    else:
+        console.print(
+            "\n[dim]Options: [bold green]'a'[/] to accept as-is, [bold cyan]'e'[/] to edit a field, [bold red]'s'[/] to skip.[/dim]"
+        )
+        action = ask("[bold]Select an action [a/e/s]:[/] ").strip().lower()
 
     if action in ("a", "accept"):
         return {"action": "accept"}
 
     if action in ("s", "skip"):
         return {"action": "skip"}
+
+    if action in ("r", "resolve") and has_resolvable:
+        edits: Dict[str, Any] = {}
+        for c in conflicts:
+            field = c.get("field")
+            cr_val = c.get("crossref")
+            oa_val = c.get("openalex")
+            if not field or cr_val is None or oa_val is None:
+                continue
+            console.print(f"\nSelect value for conflict in [bold cyan]'{field}'[/]:")
+            console.print(f"  [bold]1[/]: CrossRef -> {cr_val}")
+            console.print(f"  [bold]2[/]: OpenAlex -> {oa_val}")
+            console.print(f"  [bold]c[/]: Custom value")
+            choice = ask("Choice [1/2/c]: ").strip().lower()
+            if choice == "1":
+                edits[field] = cr_val
+            elif choice == "2":
+                edits[field] = oa_val
+            elif choice == "c":
+                edits[field] = ask(f"Enter custom value for '{field}': ").strip()
+        if edits:
+            return {"action": "edit", "edits": edits}
 
     if action in ("e", "edit"):
         field_name = ask("Enter field name to edit: ").strip()

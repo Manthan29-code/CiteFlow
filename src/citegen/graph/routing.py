@@ -131,8 +131,11 @@ def review_gate_part2(
 
 def after_user_review_router(
     state: CitationState,
-) -> Literal["validate_metadata", "mark_unresolved"]:
+) -> Literal["format_bibitem", "validate_metadata", "mark_unresolved"]:
     """Route after user responds to user_review interrupt."""
     if state.get("status") in ("failed", "skipped"):
         return "mark_unresolved"
+    if state.get("status") == "accepted":
+        return "format_bibitem"
     return "validate_metadata"
+

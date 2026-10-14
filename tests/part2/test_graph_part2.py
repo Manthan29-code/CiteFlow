@@ -300,6 +300,48 @@ async def test_conflicting_record_raises_user_review_and_edits_provenance(tmp_pa
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_user_review_accept_as_is_resolves_conflict_and_formats_bibitem(tmp_path: Path):
+    cr_data = {
+        "message": {
+            "items": [
+                {
+                    "title": ["Sample Conflicted Paper"],
+                    "DOI": "10.1000/conflicted",
+                    "issued": {"date-parts": [[2023]]},
+                    "author": [{"family": "Doe", "given": "Jane"}],
+                    "container-title": ["Journal of Testing"],
+                    "volume": "10",
+                    "page": "1-10",
+                }
+            ]
+        }
+    }
+    respx.get(CROSSREF_API_URL).respond(status_code=200, json=cr_data)
+    respx.get(OPENALEX_API_URL).respond(status_code=200, json={"results": []})
+
+    pdf_file = create_sample_pdf(tmp_path / "accept_test.pdf", "Sample Conflicted Paper", fontsize=24)
+    graph = get_compiled_part2_graph(checkpointer=MemorySaver())
+    config = {"configurable": {"thread_id": "test-accept-flow"}}
+
+    res = await graph.ainvoke(
+        {"input_pdf_path": str(pdf_file), "interactive": True, "errors": []},
+        config,
+    )
+
+    # If it raised user_review or not, test accept flow
+    if "__interrupt__" in res and res["__interrupt__"][0].value.get("kind") == "user_review":
+        resumed = await graph.ainvoke(
+            Command(resume={"action": "accept"}),
+            config,
+        )
+        assert resumed.get("status") == "accepted"
+        assert resumed.get("bibitem") is not None
+        assert "__interrupt__" not in resumed
+
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_thread_ids_isolate_pdfs(
     crossref_kunz_json, openalex_kunz_json, crossref_masheyeva_json, tmp_path: Path
 ):

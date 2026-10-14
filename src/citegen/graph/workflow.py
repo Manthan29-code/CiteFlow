@@ -168,11 +168,12 @@ def build_part2_graph() -> StateGraph:
         },
     )
 
-    # User review loop back to validation or unresolved
+    # User review loop back to validation or unresolved or format_bibitem
     builder.add_conditional_edges(
         "user_review",
         after_user_review_router,
         {
+            "format_bibitem": "format_bibitem",
             "validate_metadata": "validate_metadata",
             "mark_unresolved": "mark_unresolved",
         },

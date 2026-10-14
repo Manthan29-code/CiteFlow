@@ -206,6 +206,8 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
             return {
                 "review_required": False,
                 "validation_errors": [],
+                "conflicts": [],
+                "match_status": "matched",
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }
@@ -221,9 +223,16 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
         for field in edits:
             prov[field] = "user_correction"
 
+        # Remove conflicts corresponding to edited fields
+        remaining_conflicts = [
+            c for c in state.get("conflicts", []) if c.get("field") not in edits
+        ]
+
         return {
             "selected_metadata": current_meta,
             "field_provenance": prov,
+            "conflicts": remaining_conflicts,
+            "match_status": "matched" if not remaining_conflicts else state.get("match_status"),
             "review_attempts": curr_attempts,
             "review_required": False,
         }
@@ -238,6 +247,8 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
             return {
                 "review_required": False,
                 "validation_errors": [],
+                "conflicts": [],
+                "match_status": "matched",
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }
@@ -341,7 +352,7 @@ def match_and_merge_records(state: CitationState) -> Dict[str, Any]:
             "match_status": "ambiguous",
             "review_required": True,
             "status": "unresolved",
-            "conflicts": [{"reason": "Multiple ambiguous candidates found"}],
+            "conflicts": [{"field": "candidates", "reason": "Multiple ambiguous candidates found"}],
         }
 
     if not best_cr and not best_oa:
