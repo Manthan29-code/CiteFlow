@@ -339,6 +339,65 @@ async def test_user_review_accept_as_is_resolves_conflict_and_formats_bibitem(tm
         assert "__interrupt__" not in resumed
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_user_review_select_candidate_choice_resolves_and_formats(tmp_path: Path):
+    # Two competing candidates with identical score
+    cr_data = {
+        "message": {
+            "items": [
+                {
+                    "title": ["Competing Paper Choice"],
+                    "DOI": "10.1000/choice1",
+                    "issued": {"date-parts": [[2021]]},
+                    "author": [{"family": "One", "given": "Author"}],
+                    "container-title": ["Journal One"],
+                    "volume": "1",
+                    "page": "10",
+                },
+                {
+                    "title": ["Competing Paper Choice"],
+                    "DOI": "10.1000/choice2",
+                    "issued": {"date-parts": [[2022]]},
+                    "author": [{"family": "Two", "given": "Author"}],
+                    "container-title": ["Journal Two"],
+                    "volume": "2",
+                    "page": "20",
+                },
+            ]
+        }
+    }
+    respx.get(CROSSREF_API_URL).respond(status_code=200, json=cr_data)
+    respx.get(OPENALEX_API_URL).respond(status_code=200, json={"results": []})
+
+    pdf_file = create_sample_pdf(tmp_path / "choice_test.pdf", "Competing Paper Choice", fontsize=24)
+    graph = get_compiled_part2_graph(checkpointer=MemorySaver())
+    config = {"configurable": {"thread_id": "test-choice-flow"}}
+
+    res = await graph.ainvoke(
+        {"input_pdf_path": str(pdf_file), "interactive": True, "errors": []},
+        config,
+    )
+
+    assert "__interrupt__" in res
+    payload = res["__interrupt__"][0].value
+    assert payload["kind"] == "user_review"
+    assert "candidate_options" in payload
+    assert len(payload["candidate_options"]) >= 2
+
+    # User picks candidate index 1 (Candidate #2)
+    chosen_second = payload["candidate_options"][1]
+    resumed = await graph.ainvoke(
+        Command(resume={"action": "select_candidate", "candidate": chosen_second}),
+        config,
+    )
+
+    assert resumed.get("status") == "accepted"
+    assert resumed.get("selected_metadata", {}).get("doi_url") == "https://doi.org/10.1000/choice2"
+    assert resumed.get("bibitem") is not None
+
+
+
 
 @pytest.mark.asyncio
 @respx.mock

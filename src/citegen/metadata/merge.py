@@ -109,6 +109,7 @@ def merge_metadata(
                 "reason": reason or "Records do not describe the same work",
                 "crossref_title": rec_crossref.title,
                 "openalex_title": rec_openalex.title,
+                "candidate_options": [rec_crossref.model_dump(), rec_openalex.model_dump()],
             }
         )
         # Keep Crossref as primary but flag conflict

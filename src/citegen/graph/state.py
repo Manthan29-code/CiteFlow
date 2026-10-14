@@ -9,6 +9,7 @@ class CitationState(TypedDict, total=False):
     openalex_candidates: List[Dict[str, Any]]
     normalized_candidates: List[Dict[str, Any]]
     selected_metadata: Optional[Dict[str, Any]]
+    candidate_options: Optional[List[Dict[str, Any]]]
     field_provenance: Dict[str, str]
     missing_fields: List[str]
     conflicts: List[Dict[str, Any]]

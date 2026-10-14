@@ -183,6 +183,7 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
         "pdf_path": state.get("input_pdf_path"),
         "title": state.get("input_title"),
         "selected_metadata": state.get("selected_metadata"),
+        "candidate_options": state.get("candidate_options", []),
         "field_provenance": state.get("field_provenance", {}),
         "conflicts": state.get("conflicts", []),
         "missing_fields": state.get("missing_fields", []),
@@ -211,6 +212,33 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }
+        if action in ("select_candidate", "select"):
+            chosen_cand = user_response.get("candidate")
+            if not chosen_cand and "candidate_index" in user_response:
+                cands = state.get("candidate_options") or []
+                idx = user_response["candidate_index"]
+                if 0 <= idx < len(cands):
+                    chosen_cand = cands[idx]
+            if chosen_cand:
+                remaining_conflicts = [
+                    c for c in state.get("conflicts", [])
+                    if c.get("field") not in ("candidates", "work_identity")
+                ]
+                prov = dict(chosen_cand.get("field_provenance") or {})
+                for k in chosen_cand:
+                    if k not in prov:
+                        prov[k] = "user_selected_candidate"
+                is_resolved = len(remaining_conflicts) == 0
+                return {
+                    "selected_metadata": chosen_cand,
+                    "field_provenance": prov,
+                    "conflicts": remaining_conflicts,
+                    "match_status": "matched" if is_resolved else state.get("match_status"),
+                    "status": "accepted" if is_resolved else "unresolved",
+                    "review_required": not is_resolved,
+                    "validation_errors": [],
+                    "review_attempts": curr_attempts,
+                }
 
         # User submitted field edits
         edits = user_response.get("edits") or {
@@ -238,12 +266,13 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
         }
 
     if isinstance(user_response, str):
-        if user_response.strip().lower() == "skip":
+        trimmed = user_response.strip().lower()
+        if trimmed in ("s", "skip"):
             return {
                 "status": "skipped",
                 "validation_errors": ["User skipped metadata review"],
             }
-        if user_response.strip().lower() == "accept":
+        if trimmed in ("a", "accept"):
             return {
                 "review_required": False,
                 "validation_errors": [],
@@ -252,6 +281,30 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
                 "status": "accepted",
                 "review_attempts": curr_attempts,
             }
+        if trimmed.isdigit():
+            cands = state.get("candidate_options") or []
+            idx = int(trimmed) - 1
+            if 0 <= idx < len(cands):
+                chosen_cand = cands[idx]
+                remaining_conflicts = [
+                    c for c in state.get("conflicts", [])
+                    if c.get("field") not in ("candidates", "work_identity")
+                ]
+                prov = dict(chosen_cand.get("field_provenance") or {})
+                for k in chosen_cand:
+                    if k not in prov:
+                        prov[k] = "user_selected_candidate"
+                is_resolved = len(remaining_conflicts) == 0
+                return {
+                    "selected_metadata": chosen_cand,
+                    "field_provenance": prov,
+                    "conflicts": remaining_conflicts,
+                    "match_status": "matched" if is_resolved else state.get("match_status"),
+                    "status": "accepted" if is_resolved else "unresolved",
+                    "review_required": not is_resolved,
+                    "validation_errors": [],
+                    "review_attempts": curr_attempts,
+                }
 
     return {
         "review_attempts": curr_attempts,
@@ -345,14 +398,39 @@ def match_and_merge_records(state: CitationState) -> Dict[str, Any]:
     best_oa, evals_oa, status_oa = select_best_candidate(title, oa_cands)
 
     if status_cr == "ambiguous" or status_oa == "ambiguous":
+        matching_cands: List[ArticleMetadata] = []
+        seen_identifiers = set()
+
+        def _add_cand(cand: ArticleMetadata):
+            key = cand.doi_url or (cand.title.lower().strip() if cand.title else "")
+            if key and key not in seen_identifiers:
+                seen_identifiers.add(key)
+                matching_cands.append(cand)
+
+        for ev in (evals_cr or []) + (evals_oa or []):
+            if ev.is_match:
+                _add_cand(ev.candidate)
+
+        if not matching_cands:
+            for c in cr_cands + oa_cands:
+                _add_cand(c)
+
+        cand_options = [c.model_dump() for c in matching_cands[:5]]
+        chosen = best_cr or best_oa or (matching_cands[0] if matching_cands else None)
+
         return {
-            "selected_metadata": (best_cr or best_oa).model_dump()
-            if (best_cr or best_oa)
-            else None,
+            "selected_metadata": chosen.model_dump() if chosen else None,
+            "candidate_options": cand_options,
             "match_status": "ambiguous",
             "review_required": True,
             "status": "unresolved",
-            "conflicts": [{"field": "candidates", "reason": "Multiple ambiguous candidates found"}],
+            "conflicts": [
+                {
+                    "field": "candidates",
+                    "reason": "Multiple ambiguous candidates found",
+                    "candidate_options": cand_options,
+                }
+            ],
         }
 
     if not best_cr and not best_oa:
@@ -370,13 +448,22 @@ def match_and_merge_records(state: CitationState) -> Dict[str, Any]:
         has_critical_conflict = any(
             c.get("field") in ("work_identity", "is_preprint", "doi_url", "year") for c in conflicts
         )
-        return {
+        cand_options = None
+        for c in conflicts:
+            if c.get("field") == "work_identity" and "candidate_options" in c:
+                cand_options = c["candidate_options"]
+                break
+
+        res = {
             "selected_metadata": merged.model_dump(),
             "field_provenance": provenance,
             "conflicts": conflicts,
             "match_status": "ambiguous" if has_critical_conflict else "matched",
             "review_required": bool(has_critical_conflict),
         }
+        if cand_options:
+            res["candidate_options"] = cand_options
+        return res
 
     # Only one provider returned a match
     chosen = best_cr or best_oa

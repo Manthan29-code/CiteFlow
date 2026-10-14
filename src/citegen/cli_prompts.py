@@ -125,11 +125,37 @@ def prompt_user_review(payload: Dict[str, Any], input_func=None) -> Dict[str, An
             else:
                 console.print(f"  [yellow]• Conflict in '{field}': {reason}[/]")
 
+    candidates = payload.get("candidate_options") or []
+    if not candidates:
+        for c in conflicts:
+            if "candidate_options" in c and c["candidate_options"]:
+                candidates = c["candidate_options"]
+                break
+
+    if candidates:
+        console.print("\n[bold yellow]Matching Candidate Options:[/] [dim](Select a candidate by number or enter custom)[/dim]")
+        for idx, cand in enumerate(candidates, start=1):
+            cand_title = cand.get("title") or "Untitled"
+            cand_year = cand.get("year") or "n.d."
+            cand_journal = cand.get("journal_abbreviation") or cand.get("journal") or "Unknown Journal"
+            cand_doi = cand.get("doi_url") or "no DOI"
+            authors = cand.get("authors") or []
+            auth_str = authors[0].get("surname", "") if authors else "Unknown"
+            if len(authors) > 1:
+                auth_str += " et al."
+            console.print(f"  [bold cyan][{idx}][/] [white]{cand_title}[/]")
+            console.print(f"      [dim]{auth_str} ({cand_year}) | {cand_journal} | {cand_doi}[/dim]")
+
     has_resolvable = any(
         c.get("crossref") is not None and c.get("openalex") is not None for c in conflicts
     )
 
-    if has_resolvable:
+    if candidates:
+        console.print(
+            f"\n[dim]Options: Enter candidate number [bold cyan][1-{len(candidates)}][/], [bold green]'a'[/] to accept current as-is, [bold yellow]'c'[/] to enter custom, [bold cyan]'e'[/] to edit, [bold red]'s'[/] to skip.[/dim]"
+        )
+        action = ask(f"[bold]Select an action [1-{len(candidates)}/a/c/e/s]:[/] ").strip()
+    elif has_resolvable:
         console.print(
             "\n[dim]Options: [bold green]'a'[/] to accept as-is, [bold yellow]'r'[/] to resolve conflict, [bold cyan]'e'[/] to edit a field, [bold red]'s'[/] to skip.[/dim]"
         )
@@ -140,13 +166,31 @@ def prompt_user_review(payload: Dict[str, Any], input_func=None) -> Dict[str, An
         )
         action = ask("[bold]Select an action [a/e/s]:[/] ").strip().lower()
 
-    if action in ("a", "accept"):
+    if candidates and action.isdigit():
+        idx = int(action) - 1
+        if 0 <= idx < len(candidates):
+            return {
+                "action": "select_candidate",
+                "candidate": candidates[idx],
+                "candidate_index": idx,
+            }
+
+    if action.lower() in ("a", "accept"):
         return {"action": "accept"}
 
-    if action in ("s", "skip"):
+    if action.lower() in ("s", "skip"):
         return {"action": "skip"}
 
-    if action in ("r", "resolve") and has_resolvable:
+    if candidates and action.lower() in ("c", "custom"):
+        custom_input = ask("[bold cyan]Enter custom DOI or Article Title:[/] ").strip()
+        if not custom_input or custom_input.lower() in ("s", "skip"):
+            return {"action": "skip"}
+        if custom_input.startswith("10.") or "doi.org" in custom_input:
+            doi_val = custom_input if custom_input.startswith("http") else f"https://doi.org/{custom_input}"
+            return {"action": "edit", "edits": {"doi_url": doi_val}}
+        return {"action": "edit", "edits": {"title": custom_input}}
+
+    if action.lower() in ("r", "resolve") and has_resolvable:
         edits: Dict[str, Any] = {}
         for c in conflicts:
             field = c.get("field")
@@ -168,7 +212,7 @@ def prompt_user_review(payload: Dict[str, Any], input_func=None) -> Dict[str, An
         if edits:
             return {"action": "edit", "edits": edits}
 
-    if action in ("e", "edit"):
+    if action.lower() in ("e", "edit"):
         field_name = ask("Enter field name to edit: ").strip()
         new_val = ask(f"Enter new value for '{field_name}': ").strip()
         return {
