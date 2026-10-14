@@ -5,7 +5,7 @@ from langgraph.types import interrupt
 from citegen.config import settings
 from citegen.graph.state import CitationState
 from citegen.latex.bibitem import format_bibitem as render_bibitem
-from citegen.metadata.matching import select_best_candidate
+from citegen.metadata.matching import candidate_canonical_score, select_best_candidate
 from citegen.metadata.merge import merge_metadata
 from citegen.metadata.models import ArticleMetadata
 from citegen.metadata.validate import validate_metadata as run_validate
@@ -398,6 +398,24 @@ def match_and_merge_records(state: CitationState) -> Dict[str, Any]:
     best_oa, evals_oa, status_oa = select_best_candidate(title, oa_cands)
 
     if status_cr == "ambiguous" or status_oa == "ambiguous":
+        # If one provider cleanly matched a canonical journal article, prefer it
+        if status_cr == "matched" and best_cr and candidate_canonical_score(best_cr) >= 25:
+            return {
+                "selected_metadata": best_cr.model_dump(),
+                "field_provenance": best_cr.field_provenance,
+                "conflicts": [],
+                "match_status": "matched",
+                "review_required": False,
+            }
+        if status_oa == "matched" and best_oa and candidate_canonical_score(best_oa) >= 25:
+            return {
+                "selected_metadata": best_oa.model_dump(),
+                "field_provenance": best_oa.field_provenance,
+                "conflicts": [],
+                "match_status": "matched",
+                "review_required": False,
+            }
+
         matching_cands: List[ArticleMetadata] = []
         seen_identifiers = set()
 
@@ -414,6 +432,9 @@ def match_and_merge_records(state: CitationState) -> Dict[str, Any]:
         if not matching_cands:
             for c in cr_cands + oa_cands:
                 _add_cand(c)
+
+        # Sort matching candidates by canonical authority
+        matching_cands.sort(key=lambda c: candidate_canonical_score(c), reverse=True)
 
         cand_options = [c.model_dump() for c in matching_cands[:5]]
         chosen = best_cr or best_oa or (matching_cands[0] if matching_cands else None)

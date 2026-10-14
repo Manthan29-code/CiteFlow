@@ -77,3 +77,38 @@ def test_ambiguous_matches_result():
     best, evals, status = select_best_candidate("Target Paper", cands)
     assert status == "ambiguous"
     assert best is None
+
+
+def test_canonical_tiebreaker_prefers_journal_over_repository():
+    # Candidates with identical title and score, but one is a formal journal article and the others are repository records
+    journal_cand = ArticleMetadata(
+        title="Experimental and numerical study of plasma",
+        year=2025,
+        journal="Plasma Sources Science and Technology",
+        journal_abbreviation="Plasma Sources Sci. Technol.",
+        doi_url="https://doi.org/10.1088/1361-6595/adcb6b",
+        volume="34",
+        issue="4",
+        article_number="045017",
+    )
+    repo_cand_1 = ArticleMetadata(
+        title="Experimental and numerical study of plasma",
+        year=2025,
+        journal="RENATE",
+        doi_url="https://doi.org/10.34657/32095",
+    )
+    repo_cand_2 = ArticleMetadata(
+        title="Experimental and numerical study of plasma",
+        year=2025,
+        journal="RENATE",
+        doi_url="https://doi.org/10.34657/31221",
+    )
+
+    cands = [repo_cand_1, journal_cand, repo_cand_2]
+    best, evals, status = select_best_candidate("Experimental and numerical study of plasma", cands)
+
+    assert status == "matched"
+    assert best is not None
+    assert best.doi_url == "https://doi.org/10.1088/1361-6595/adcb6b"
+    assert best.journal == "Plasma Sources Science and Technology"
+

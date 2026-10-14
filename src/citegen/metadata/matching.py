@@ -149,6 +149,62 @@ def evaluate_candidate(target_title: str, candidate: ArticleMetadata) -> Candida
     )
 
 
+KNOWN_REPOSITORIES: Set[str] = {
+    "renate",
+    "arxiv",
+    "zenodo",
+    "figshare",
+    "osf",
+    "research square",
+    "biorxiv",
+    "medrxiv",
+    "ssrn",
+    "chemrxiv",
+    "preprints.org",
+    "hal",
+    "dryad",
+    "mendeley data",
+}
+
+
+def candidate_canonical_score(cand: ArticleMetadata) -> int:
+    """
+    Score the completeness and canonical publication authority of a candidate.
+    Favors peer-reviewed journal articles with complete locators over
+    institutional repository deposits and preprints.
+    """
+    score = 0
+    # 1. Non-preprint status
+    if not cand.is_preprint:
+        score += 10
+
+    # 2. Journal presence and recognition
+    if cand.journal:
+        j_lower = cand.journal.lower().strip()
+        is_repo = any(repo in j_lower for repo in KNOWN_REPOSITORIES)
+        if not is_repo:
+            score += 15
+        else:
+            score -= 5
+
+    if cand.journal_abbreviation:
+        score += 5
+
+    # 3. Publication locators (volume, issue, page, article number)
+    if cand.volume:
+        score += 5
+    if cand.issue:
+        score += 3
+    if cand.article_number or cand.first_page:
+        score += 5
+
+    # 4. DOI presence
+    if cand.doi_url:
+        score += 2
+
+    return score
+
+
 def select_best_candidate(
     target_title: str,
     candidates: List[ArticleMetadata],
@@ -186,6 +242,22 @@ def select_best_candidate(
         # Check if they have different DOIs or titles
         dois = {m.candidate.doi_url for m in top_matches if m.candidate.doi_url}
         if len(dois) > 1:
+            # Canonical tie-breaker: check if one candidate is a formal peer-reviewed journal article
+            # with locators while others are repository deposits or incomplete records
+            scored_matches = sorted(
+                top_matches,
+                key=lambda m: (candidate_canonical_score(m.candidate), m.score),
+                reverse=True,
+            )
+            top_cand = scored_matches[0].candidate
+            second_cand = scored_matches[1].candidate
+
+            top_canonical = candidate_canonical_score(top_cand)
+            second_canonical = candidate_canonical_score(second_cand)
+
+            if top_canonical >= 25 and (top_canonical - second_canonical >= 10):
+                return top_cand, evaluations, "matched"
+
             return None, evaluations, "ambiguous"
 
     best = matched_evals[0].candidate
