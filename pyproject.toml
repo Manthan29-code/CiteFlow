@@ -2,6 +2,12 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.pyright]
+extraPaths = ["Backend", "src"]
+
+[tool.pyrefly]
+search-paths = ["Backend", "src"]
+
 [project]
 name = "citegen"
 version = "0.1.0"
@@ -36,7 +42,7 @@ ocr = [
 citegen = "citegen.cli:app"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "Backend"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
