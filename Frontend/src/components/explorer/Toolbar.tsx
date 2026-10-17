@@ -1,8 +1,9 @@
 import React, { useRef } from 'react';
-import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X } from 'lucide-react';
+import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
 import { setSearchQuery, setViewMode } from '@/store/slices/explorerSlice';
+import { openJobDrawer } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
 import { UploadQueueItem } from '@/types/api';
@@ -14,7 +15,20 @@ export const Toolbar: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { searchQuery, viewMode, folderData } = useAppSelector((state) => state.explorer);
+  const jobsById = useAppSelector((state) => state.jobs.jobsById);
   const currentFolder = folderData?.folder;
+
+  // Find active or recent job for easy re-opening
+  const activeJob = React.useMemo(
+    () =>
+      Object.values(jobsById).find((j) =>
+        ['queued', 'running', 'needs_title_confirmation', 'needs_review'].includes(j.status)
+      ) ||
+      Object.values(jobsById).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0],
+    [jobsById]
+  );
 
   const totalItems = (folderData?.folders.length || 0) + (folderData?.files.length || 0);
 
@@ -106,6 +120,19 @@ export const Toolbar: React.FC = () => {
           <Upload className="w-4 h-4 text-indigo-brand" />
           <span>Upload PDF</span>
         </Button>
+
+        {activeJob && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => dispatch(openJobDrawer(activeJob.id))}
+            className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/60"
+            title="Open Citation Pipeline"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-brand" />
+            <span>Citation Pipeline</span>
+          </Button>
+        )}
 
         <input
           ref={fileInputRef}

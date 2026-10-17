@@ -11,10 +11,13 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const waitingJobs = useAppSelector((state) =>
-    Object.values(state.jobs.jobsById).filter(
-      (j) => j.status === 'needs_title_confirmation' || j.status === 'needs_review'
-    )
+  const jobsById = useAppSelector((state) => state.jobs.jobsById);
+  const waitingJobs = React.useMemo(
+    () =>
+      Object.values(jobsById).filter(
+        (j) => j.status === 'needs_title_confirmation' || j.status === 'needs_review'
+      ),
+    [jobsById]
   );
 
   const handleLogout = async () => {

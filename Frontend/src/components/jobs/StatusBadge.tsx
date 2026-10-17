@@ -114,6 +114,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ job, className, size =
       type="button"
       onClick={handleClick}
       aria-label={`Job status: ${config.label}`}
+      title={
+        job.status === 'succeeded'
+          ? 'Citation ready - Click to view .tex output'
+          : `Click to view citation pipeline (${config.label})`
+      }
       className={cn(
         'inline-flex items-center rounded-lg border font-mono tracking-wide font-medium transition-all shadow-2xs select-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand',
         sizeClasses,

@@ -17,7 +17,8 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore File instances and XHR objects in upload queue
-        ignoredActionPaths: ['payload.file', 'payload.*.file'],
+        ignoredActions: ['upload/addUploads'],
+        ignoredActionPaths: ['payload', 'meta.arg'],
         ignoredPaths: ['upload.items'],
       },
     }),

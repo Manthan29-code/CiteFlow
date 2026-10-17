@@ -11,7 +11,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openDeleteDialog, addToast } from '@/store/slices/uiSlice';
 import { setSelectedFileId } from '@/store/slices/explorerSlice';
-import { openTexPreviewModal } from '@/store/slices/jobsSlice';
+import { openJobDrawer, openTexPreviewModal } from '@/store/slices/jobsSlice';
 import { StatusBadge } from '@/components/jobs/StatusBadge';
 import { GenerateButton } from '@/components/jobs/GenerateButton';
 import { getSignedUrl } from '@/api/files';
@@ -33,6 +33,7 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
   const selectedFileId = useAppSelector((state) => state.explorer.selectedFileId);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuUpward, setMenuUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isFolder = item.type === 'folder';
@@ -44,7 +45,7 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
 
   const job = useAppSelector((state) => (!isFolder && file ? state.jobs.jobsByFileId[file.id] : undefined));
 
-  // Close context menu on outside click
+  // Close context menu on outside click & check positioning
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -52,6 +53,11 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
       }
     };
     if (menuOpen) {
+      if (menuRef.current) {
+        const rect = menuRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setMenuUpward(spaceBelow < 180);
+      }
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
@@ -158,6 +164,21 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
           <span className="text-[11px] font-mono text-charcoal/40 sm:hidden">
             {isFolder ? 'Folder' : formatBytes(file!.size_bytes)}
           </span>
+          {!isFolder && job && (
+            <div className="flex items-center gap-2 mt-1 sm:hidden">
+              <StatusBadge job={job} size="sm" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dispatch(openJobDrawer(job.id));
+                }}
+                className="text-[11px] font-mono text-indigo-brand font-semibold underline hover:text-indigo-hover"
+              >
+                Pipeline
+              </button>
+            </div>
+          )}
         </div>
       </td>
 
@@ -178,6 +199,20 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
         ) : (
           <div className="flex items-center justify-center gap-2">
             {job && <StatusBadge job={job} />}
+            {job && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dispatch(openJobDrawer(job.id));
+                }}
+                title="View Citation Pipeline"
+                aria-label="View Citation Pipeline"
+                className="p-1 rounded-lg text-charcoal/40 hover:text-indigo-brand hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+              </button>
+            )}
             {(!job || ['succeeded', 'unresolved', 'failed', 'canceled', 'expired'].includes(job.status)) && (
               <GenerateButton fileId={file!.id} fileName={file!.name} />
             )}
@@ -201,7 +236,12 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 z-30 mt-1 w-44 rounded-xl bg-white border border-border-light shadow-lg py-1 text-xs font-sans text-charcoal-800 animate-in fade-in zoom-in-95 duration-100">
+            <div
+              className={cn(
+                'absolute right-0 z-50 w-48 rounded-xl bg-white border border-border-light shadow-xl py-1 text-xs font-sans text-charcoal-800 animate-in fade-in zoom-in-95 duration-100',
+                menuUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+              )}
+            >
               {!isFolder ? (
                 <>
                   <button
@@ -211,6 +251,19 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
                     <ExternalLink className="w-3.5 h-3.5 text-indigo-brand" />
                     <span>Open PDF</span>
                   </button>
+
+                  {job && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        dispatch(openJobDrawer(job.id));
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-cream-200 transition-colors text-charcoal-800 font-medium"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-brand" />
+                      <span>Citation Pipeline</span>
+                    </button>
+                  )}
 
                   {job?.status === 'succeeded' && (
                     <button

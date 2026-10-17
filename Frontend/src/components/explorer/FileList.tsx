@@ -97,8 +97,8 @@ export const FileList: React.FC<FileListProps> = ({ onUploadClick }) => {
   }
 
   return (
-    <div className="flex flex-col w-full">
-      <div className="overflow-x-auto rounded-2xl border border-border-light bg-white shadow-xs">
+    <div className="flex flex-col w-full flex-1 min-h-0">
+      <div className="overflow-x-auto flex-1 min-h-[340px] rounded-2xl border border-border-light bg-white shadow-xs">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-border-light bg-cream-50 text-[11px] font-mono uppercase tracking-[0.2em] text-charcoal/60">

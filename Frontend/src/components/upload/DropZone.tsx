@@ -121,7 +121,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="relative w-full h-full min-h-[400px]"
+      className="relative w-full flex-1 flex flex-col min-h-0"
     >
       {children}
 

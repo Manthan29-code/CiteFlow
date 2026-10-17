@@ -64,7 +64,8 @@ async def run_file(
     Executes the Part 2 graph, pauses on human interrupts, or resumes from checkpoints.
     Cancellation safety: never swallows asyncio.CancelledError.
     """
-    if checkpointer is None:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+    if checkpointer is None or not isinstance(checkpointer, BaseCheckpointSaver):
         checkpointer = MemorySaver()
 
     compiled_graph = get_compiled_part2_graph(checkpointer=checkpointer)
@@ -93,11 +94,12 @@ async def run_file(
         # Allow cancellation to propagate cleanly
         raise
     except Exception as exc:
+        err_msg = str(exc) if str(exc) else repr(exc)
         return RunResult(
             status="failed",
-            state={"status": "failed", "errors": [{"type": "exception", "message": str(exc)}]},
+            state={"status": "failed", "errors": [{"type": "exception", "message": err_msg}]},
             error_code="pipeline_error",
-            reasons=[{"code": "pipeline_error", "message": str(exc)}],
+            reasons=[{"code": "pipeline_error", "message": err_msg}],
         )
 
     # Check for human review interrupt

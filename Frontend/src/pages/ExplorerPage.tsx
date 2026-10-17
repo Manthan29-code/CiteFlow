@@ -13,6 +13,7 @@ import { TitleConfirmDialog } from '@/components/jobs/TitleConfirmDialog';
 import { ReviewFormDialog } from '@/components/jobs/ReviewFormDialog';
 import { TexPreviewDialog } from '@/components/jobs/TexPreviewDialog';
 import { JobPanel } from '@/components/jobs/JobPanel';
+import { ActiveJobDock } from '@/components/jobs/ActiveJobDock';
 import { UploadDrawer } from '@/components/upload/UploadDrawer';
 import { DropZone } from '@/components/upload/DropZone';
 import { addUploads } from '@/store/slices/uploadSlice';
@@ -21,13 +22,15 @@ import { UploadQueueItem } from '@/types/api';
 import { env } from '@/lib/env';
 import { formatBytes } from '@/lib/format';
 
+const EMPTY_BREADCRUMBS: [] = [];
+
 export const ExplorerPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { folderId } = useParams<{ folderId?: string }>();
   const activeId = folderId || 'root';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const breadcrumbs = useAppSelector((state) => state.explorer.folderData?.breadcrumbs || []);
+  const breadcrumbs = useAppSelector((state) => state.explorer.folderData?.breadcrumbs) || EMPTY_BREADCRUMBS;
   const currentFolder = useAppSelector((state) => state.explorer.folderData?.folder);
 
   // Synchronize route param with folder query
@@ -108,14 +111,16 @@ export const ExplorerPage: React.FC = () => {
         <Sidebar />
 
         {/* Main Explorer Workspace */}
-        <main className="flex-1 min-w-0 p-4 sm:p-8 flex flex-col">
+        <main className="flex-1 min-w-0 px-4 pt-4 pb-[10px] sm:px-8 sm:pt-6 sm:pb-[10px] flex flex-col">
           {/* Breadcrumb Hierarchy */}
-          <div className="mb-4">
+          <div className="mb-4 shrink-0">
             <Breadcrumbs breadcrumbs={breadcrumbs} currentFolderId={activeId} />
           </div>
 
           {/* Action Toolbar */}
-          <Toolbar />
+          <div className="shrink-0">
+            <Toolbar />
+          </div>
 
           {/* Drag & Drop File Explorer Zone */}
           <DropZone>
@@ -142,9 +147,10 @@ export const ExplorerPage: React.FC = () => {
       <ReviewFormDialog />
       <TexPreviewDialog />
 
-      {/* Floating Drawers */}
+      {/* Floating Drawers & Docks */}
       <UploadDrawer />
       <JobPanel />
+      <ActiveJobDock />
     </div>
   );
 };

@@ -30,7 +30,7 @@ from .core.middleware import (
 from .db.session import engine
 from .files.router import router as files_router
 from .folders.router import router as folders_router
-from .jobs.checkpointer import setup_checkpointer
+from .jobs.checkpointer import setup_checkpointer, close_checkpointer
 from .jobs.router import router as jobs_router
 from .jobs.runner import recover_jobs_on_startup, run_periodic_maintenance
 from .storage.cleaner import StorageCleanerWorker
@@ -96,6 +96,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Error during maintenance task cancellation: {e}")
 
     await cleaner_worker.stop()
+    await close_checkpointer()
     await engine.dispose()
     logger.info("CiteFlow Backend shutdown complete.")
 

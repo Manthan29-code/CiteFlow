@@ -161,7 +161,17 @@ async def execute_job(
 
             # 4. Run LangGraph via citegen.api.run_file
             from citegen.api import render_single_record, run_file
-            checkpointer = get_checkpointer()
+            from langgraph.checkpoint.base import BaseCheckpointSaver
+            try:
+                checkpointer = get_checkpointer()
+                if not isinstance(checkpointer, BaseCheckpointSaver):
+                    logger.warning(f"Checkpointer {type(checkpointer)} is not a BaseCheckpointSaver. Falling back to MemorySaver.")
+                    from langgraph.checkpoint.memory import MemorySaver
+                    checkpointer = MemorySaver()
+            except Exception as cp_err:
+                logger.warning(f"Could not get configured checkpointer: {cp_err}. Using MemorySaver.")
+                from langgraph.checkpoint.memory import MemorySaver
+                checkpointer = MemorySaver()
 
             # Execute with overall timeout
             run_coro = run_file(

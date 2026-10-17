@@ -28,6 +28,8 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [openUpward, setOpenUpward] = useState<boolean>(false);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
@@ -36,6 +38,11 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
       }
     };
     if (dropdownOpen) {
+      if (dropdownRef.current) {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setOpenUpward(spaceBelow < 160);
+      }
       document.addEventListener('mousedown', handleOutside);
     }
     return () => {
@@ -82,17 +89,20 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
   };
 
   return (
-    <div className={cn('relative inline-flex items-center rounded-xl shadow-xs', className)} ref={dropdownRef}>
+    <div
+      className={cn('relative inline-flex items-stretch h-8 rounded-xl bg-indigo-brand shadow-xs', className)}
+      ref={dropdownRef}
+    >
       {/* Primary Action Button */}
       <button
         type="button"
         onClick={handleStartJob}
         disabled={disabled || isStarting}
         aria-label={`Generate .tex citation for ${fileName}`}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl bg-indigo-brand text-white text-xs font-sans font-medium hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+        className="inline-flex items-center gap-1.5 px-3 h-full rounded-l-xl bg-indigo-brand text-white text-xs font-sans font-medium hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
       >
-        <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-        <span>{isStarting ? 'Starting...' : 'Generate .tex'}</span>
+        <Sparkles className="w-3.5 h-3.5 text-indigo-200 shrink-0" />
+        <span className="whitespace-nowrap">{isStarting ? 'Starting...' : 'Generate .tex'}</span>
       </button>
 
       {/* Mode Selector Dropdown Arrow */}
@@ -104,14 +114,19 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
         }}
         disabled={disabled || isStarting}
         aria-label="Choose TeX output mode"
-        className="px-1.5 py-1.5 rounded-r-xl border-l border-indigo-700 bg-indigo-brand text-indigo-200 hover:text-white hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+        className="inline-flex items-center justify-center px-2.5 h-full rounded-r-xl border-l border-indigo-700/60 bg-indigo-brand text-indigo-200 hover:text-white hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
       >
         <ChevronDown className="w-3.5 h-3.5" />
       </button>
 
       {/* Dropdown Menu */}
       {dropdownOpen && (
-        <div className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl bg-white border border-border-light shadow-xl p-1.5 text-xs font-sans text-charcoal-900 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          className={cn(
+            'absolute right-0 z-50 w-52 rounded-xl bg-white border border-border-light shadow-xl p-1.5 text-xs font-sans text-charcoal-900 animate-in fade-in zoom-in-95 duration-100',
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          )}
+        >
           <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-charcoal/50">
             Output Format
           </div>

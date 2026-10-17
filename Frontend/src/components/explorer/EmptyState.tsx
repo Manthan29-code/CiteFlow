@@ -12,7 +12,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onUploadClick }) => {
   const dispatch = useAppDispatch();
 
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+    <div className="flex flex-col items-center justify-center py-20 px-4 text-center flex-1 rounded-2xl border border-border-light bg-white shadow-xs">
       <div className="w-16 h-16 rounded-2xl bg-cream-200 border border-border-light flex items-center justify-center text-charcoal/40 mb-4 shadow-sm">
         <FolderOpen className="w-8 h-8 text-indigo-brand/50" />
       </div>
