@@ -45,3 +45,11 @@ class PdfHandler(DocumentHandler):
                 doc.close()
 
         await asyncio.to_thread(_sync_validate)
+
+    async def title_candidates(self, path: Path) -> list[dict]:
+        """
+        Extracts ranked title candidates using GROBID and PyMuPDF layout heuristics.
+        """
+        from citegen.pdf.title_detector import detect_title_candidates
+
+        return await detect_title_candidates(path)

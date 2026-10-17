@@ -68,13 +68,18 @@ SIGNED_URL_EXPIRES_SECONDS=300
 ### 1. Database Configuration (Neon PostgreSQL)
 Set `DATABASE_URL` in your `.env` to your Neon connection string. The server automatically ensures tables on startup via `create_all`.
 
-### 2. Install Dependencies
+### 2. Database Migrations (Alembic)
+Run Alembic migrations to apply all tables (Part A platform tables + Part B jobs table):
 ```bash
-pip install -r requirements.txt
+cd Backend
+alembic upgrade head
 ```
 
-### Launch the Server
+*Note: LangGraph checkpointer tables (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`) are automatically created at server startup by `setup_checkpointer()`.*
+
+### 3. Launch the Server
 ```bash
+cd Backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -82,3 +87,24 @@ Interactive OpenAPI documentation is available at: `http://localhost:8000/docs` 
 Liveness and readiness probes are available at:
 - `GET /health`
 - `GET /health/ready`
+
+---
+
+## 4. Citation Jobs Pipeline (Server Part B)
+
+- **Asynchronous Execution**:
+  - `POST /api/v1/files/{file_id}/jobs` launches background processing through the core LangGraph pipeline.
+  - Concurrency limited globally via `MAX_CONCURRENT_JOBS` semaphore; user-level active job limit via `MAX_ACTIVE_JOBS_PER_USER`.
+  - Rate limiting & shared provider semaphores for Crossref and OpenAlex (`CROSSREF_MAX_CONCURRENCY`, `OPENALEX_MAX_CONCURRENCY`).
+- **Human-in-the-Loop Interrupts**:
+  - Graph pauses when title is ambiguous (`needs_title_confirmation`) or metadata requires human review (`needs_review`).
+  - Resumed via `POST /api/v1/jobs/{id}/resume` with structured title selection or metadata edits.
+- **Persistent State**:
+  - Uses `PostgresSaver` to persist state across interruptions and server restarts.
+  - On unexpected crash/restart, active running jobs are safely recovered to `failed` (`server_restarted`), while waiting interrupt jobs survive.
+- **Export & Real-Time Monitoring**:
+  - `GET /api/v1/jobs/{id}/tex`: Downloads rendered LaTeX `.tex` citation document (`standalone` or `fragment` bibliography).
+  - `GET /api/v1/jobs/{id}/events`: Real-time Server-Sent Events (SSE) status stream with periodic keepalive heartbeats.
+- **Automated Expiry & Retention**:
+  - Background maintenance automatically expires abandoned interactive jobs after `INTERRUPT_EXPIRE_HOURS` and purges completed jobs older than `JOB_RETENTION_DAYS`.
+

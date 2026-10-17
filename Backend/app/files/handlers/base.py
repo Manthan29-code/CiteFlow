@@ -12,6 +12,12 @@ class DocumentHandler(Protocol):
         """
         ...
 
+    async def title_candidates(self, path: Path) -> list[dict]:
+        """
+        Extracts ranked candidate titles from the document.
+        """
+        ...
+
 
 # Global registry of document handlers
 HANDLERS: Dict[str, DocumentHandler] = {}

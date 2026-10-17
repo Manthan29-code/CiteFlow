@@ -221,20 +221,32 @@ class FolderService:
                 JOIN subfolders s ON f.parent_id = s.id
                 WHERE f.owner_id = :owner_id
             )
-            SELECT imagekit_file_id FROM files
+            SELECT id, imagekit_file_id FROM files
             WHERE folder_id IN (SELECT id FROM subfolders)
               AND owner_id = :owner_id
         """)
         result = await db.execute(cte_query, {"folder_id": folder.id, "owner_id": owner_id})
-        imagekit_file_ids = [row[0] for row in result.fetchall()]
+        rows = result.fetchall()
+        file_ids = [row[0] for row in rows]
+        imagekit_file_ids = [row[1] for row in rows]
+
+        # Cancel active in-memory tasks for jobs of descendant files
+        if file_ids:
+            from app.db.models.job import Job
+            from app.jobs.runner import cancel_running_task
+            jobs_stmt = select(Job.id).where(Job.file_id.in_(file_ids))
+            job_ids = (await db.execute(jobs_stmt)).scalars().all()
+            for jid in job_ids:
+                cancel_running_task(jid)
 
         # Insert into storage_deletions outbox
         for fid in imagekit_file_ids:
             db.add(StorageDeletion(imagekit_file_id=fid))
 
-        # Delete the folder row (ON DELETE CASCADE handles child folders and files)
+        # Delete the folder row (ON DELETE CASCADE handles child folders, files, and jobs)
         await db.delete(folder)
         await db.commit()
 
         # Signal cleaner
         wake_cleaner()
+

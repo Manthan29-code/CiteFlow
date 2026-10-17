@@ -30,6 +30,9 @@ from .core.middleware import (
 from .db.session import engine
 from .files.router import router as files_router
 from .folders.router import router as folders_router
+from .jobs.checkpointer import setup_checkpointer
+from .jobs.router import router as jobs_router
+from .jobs.runner import recover_jobs_on_startup, run_periodic_maintenance
 from .storage.cleaner import StorageCleanerWorker
 
 logger = logging.getLogger(__name__)
@@ -49,6 +52,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.critical(f"Settings validation failed: {e}")
         raise
 
+    if not settings.CROSSREF_MAILTO and settings.ENV == "production":
+        logger.warning("CROSSREF_MAILTO is empty in production. Polite pool will not be used.")
+
     # 3. Verify DB connectivity (Fast, clean ping)
     try:
         async with engine.connect() as conn:
@@ -58,14 +64,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"[DB ERROR] Failed to connect to PostgreSQL database: {e}", exc_info=True)
         logger.error("[DB ERROR] Please check DATABASE_URL in your .env and verify your Neon DB is reachable.")
 
-    # 4. Start storage cleaner background task
+    # 4. Initialize LangGraph checkpointer tables
+    try:
+        await setup_checkpointer()
+        logger.info("Checkpointer setup completed.")
+    except Exception as e:
+        logger.error(f"Failed to setup checkpointer: {e}", exc_info=True)
+
+    # 5. Recover orphaned jobs from previous server crash/restart
+    try:
+        await recover_jobs_on_startup()
+    except Exception as e:
+        logger.error(f"Error during job recovery on startup: {e}")
+
+    # 6. Start background workers
     cleaner_worker = StorageCleanerWorker(get_storage())
     await cleaner_worker.start()
+
+    maintenance_task = asyncio.create_task(run_periodic_maintenance())
 
     yield
 
     # Shutdown
     logger.info("Shutting down CiteFlow Backend...")
+    maintenance_task.cancel()
+    try:
+        await maintenance_task
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.warning(f"Error during maintenance task cancellation: {e}")
+
     await cleaner_worker.stop()
     await engine.dispose()
     logger.info("CiteFlow Backend shutdown complete.")
@@ -122,8 +151,10 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(folders_router, prefix="/api/v1")
     app.include_router(files_router, prefix="/api/v1")
+    app.include_router(jobs_router, prefix="/api/v1")
 
     return app
 
 
 app = create_app()
+

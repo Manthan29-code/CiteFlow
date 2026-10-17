@@ -67,11 +67,29 @@ class CrossrefClient:
         return candidates
 
 
+import asyncio
+
+_crossref_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def get_crossref_semaphore(limit: int = 3) -> asyncio.Semaphore:
+    global _crossref_semaphore
+    if _crossref_semaphore is None:
+        _crossref_semaphore = asyncio.Semaphore(limit)
+    return _crossref_semaphore
+
+
+def set_crossref_semaphore(semaphore: asyncio.Semaphore) -> None:
+    global _crossref_semaphore
+    _crossref_semaphore = semaphore
+
+
 async def fetch_crossref_candidates(
     title: str,
     mailto: Optional[str] = None,
     timeout: Optional[float] = None,
     client: Optional[httpx.AsyncClient] = None,
+    semaphore: Optional[asyncio.Semaphore] = None,
 ) -> Dict[str, Any]:
     """
     Failure-isolated wrapper around CrossrefClient.
@@ -79,38 +97,41 @@ async def fetch_crossref_candidates(
     Returns:
         {"candidates": list[dict], "error": Optional[dict]}
     """
-    c = CrossrefClient(mailto=mailto, timeout=timeout)
-    try:
-        candidates = await c.search_title(title=title, client=client)
-        return {
-            "candidates": [cand.model_dump() for cand in candidates],
-            "error": None,
-        }
-    except httpx.TimeoutException as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "crossref",
-                "type": "timeout",
-                "message": f"Crossref request timed out: {e}",
-            },
-        }
-    except httpx.HTTPStatusError as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "crossref",
-                "type": "http_error",
-                "status_code": e.response.status_code,
-                "message": f"Crossref HTTP {e.response.status_code}: {e.response.text}",
-            },
-        }
-    except Exception as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "crossref",
-                "type": "general_error",
-                "message": str(e),
-            },
-        }
+    sem = semaphore or get_crossref_semaphore()
+    async with sem:
+        c = CrossrefClient(mailto=mailto, timeout=timeout)
+        try:
+            candidates = await c.search_title(title=title, client=client)
+            return {
+                "candidates": [cand.model_dump() for cand in candidates],
+                "error": None,
+            }
+        except httpx.TimeoutException as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "crossref",
+                    "type": "timeout",
+                    "message": f"Crossref request timed out: {e}",
+                },
+            }
+        except httpx.HTTPStatusError as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "crossref",
+                    "type": "http_error",
+                    "status_code": e.response.status_code,
+                    "message": f"Crossref HTTP {e.response.status_code}: {e.response.text}",
+                },
+            }
+        except Exception as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "crossref",
+                    "type": "general_error",
+                    "message": str(e),
+                },
+            }
+

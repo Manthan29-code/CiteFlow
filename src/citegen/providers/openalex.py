@@ -69,11 +69,29 @@ class OpenAlexClient:
         return candidates
 
 
+import asyncio
+
+_openalex_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def get_openalex_semaphore(limit: int = 3) -> asyncio.Semaphore:
+    global _openalex_semaphore
+    if _openalex_semaphore is None:
+        _openalex_semaphore = asyncio.Semaphore(limit)
+    return _openalex_semaphore
+
+
+def set_openalex_semaphore(semaphore: asyncio.Semaphore) -> None:
+    global _openalex_semaphore
+    _openalex_semaphore = semaphore
+
+
 async def fetch_openalex_candidates(
     title: str,
     api_key: Optional[str] = None,
     timeout: Optional[float] = None,
     client: Optional[httpx.AsyncClient] = None,
+    semaphore: Optional[asyncio.Semaphore] = None,
 ) -> Dict[str, Any]:
     """
     Failure-isolated wrapper around OpenAlexClient.
@@ -81,38 +99,41 @@ async def fetch_openalex_candidates(
     Returns:
         {"candidates": list[dict], "error": Optional[dict]}
     """
-    c = OpenAlexClient(api_key=api_key, timeout=timeout)
-    try:
-        candidates = await c.search_title(title=title, client=client)
-        return {
-            "candidates": [cand.model_dump() for cand in candidates],
-            "error": None,
-        }
-    except httpx.TimeoutException as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "openalex",
-                "type": "timeout",
-                "message": f"OpenAlex request timed out: {e}",
-            },
-        }
-    except httpx.HTTPStatusError as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "openalex",
-                "type": "http_error",
-                "status_code": e.response.status_code,
-                "message": f"OpenAlex HTTP {e.response.status_code}: {e.response.text}",
-            },
-        }
-    except Exception as e:
-        return {
-            "candidates": [],
-            "error": {
-                "provider": "openalex",
-                "type": "general_error",
-                "message": str(e),
-            },
-        }
+    sem = semaphore or get_openalex_semaphore()
+    async with sem:
+        c = OpenAlexClient(api_key=api_key, timeout=timeout)
+        try:
+            candidates = await c.search_title(title=title, client=client)
+            return {
+                "candidates": [cand.model_dump() for cand in candidates],
+                "error": None,
+            }
+        except httpx.TimeoutException as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "openalex",
+                    "type": "timeout",
+                    "message": f"OpenAlex request timed out: {e}",
+                },
+            }
+        except httpx.HTTPStatusError as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "openalex",
+                    "type": "http_error",
+                    "status_code": e.response.status_code,
+                    "message": f"OpenAlex HTTP {e.response.status_code}: {e.response.text}",
+                },
+            }
+        except Exception as e:
+            return {
+                "candidates": [],
+                "error": {
+                    "provider": "openalex",
+                    "type": "general_error",
+                    "message": str(e),
+                },
+            }
+

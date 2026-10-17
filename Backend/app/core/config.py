@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     COOKIE_SAMESITE: str = Field(default="lax")
     COOKIE_DOMAIN: Optional[str] = Field(default=None)
     ALLOW_REGISTRATION: bool = Field(default=True)
-    PASSWORD_MIN_LENGTH: int = Field(default=10)
+    PASSWORD_MIN_LENGTH: int = Field(default=6)
     LOGIN_RATE_LIMIT: str = Field(default="5/minute")
     REGISTER_RATE_LIMIT: str = Field(default="10/hour")
 
@@ -70,6 +70,29 @@ class Settings(BaseSettings):
     STORAGE_CLEANER_INTERVAL_SECONDS: int = Field(default=30)
     STORAGE_CLEANER_BATCH_SIZE: int = Field(default=100)
     STORAGE_CLEANER_MAX_ATTEMPTS: int = Field(default=10)
+
+    # Citation Pipeline (Part B)
+    GROBID_URL: str = Field(default="http://localhost:8070")
+    CROSSREF_MAILTO: Optional[str] = Field(default=None)
+    OPENALEX_API_KEY: Optional[str] = Field(default=None)
+    REQUEST_TIMEOUT_SECONDS: float = Field(default=15.0)
+    OCR_ENABLED: bool = Field(default=True)
+
+    # Jobs & Concurrency (Part B)
+    MAX_CONCURRENT_JOBS: int = Field(default=4)
+    MAX_ACTIVE_JOBS_PER_USER: int = Field(default=3)
+    JOB_TIMEOUT_SECONDS: int = Field(default=300)
+    INTERRUPT_EXPIRE_HOURS: int = Field(default=24)
+    JOB_RETENTION_DAYS: int = Field(default=30)
+    SSE_HEARTBEAT_SECONDS: int = Field(default=15)
+
+    # Provider Limits (Part B)
+    CROSSREF_MAX_CONCURRENCY: int = Field(default=3)
+    OPENALEX_MAX_CONCURRENCY: int = Field(default=3)
+
+    # LangGraph Checkpointer (Part B)
+    CHECKPOINTER: str = Field(default="memory", description="postgres | memory | sqlite")
+    CHECKPOINT_DATABASE_URL: Optional[str] = Field(default=None)
 
     model_config = SettingsConfigDict(
         env_file=(str(ROOT_ENV), str(BACKEND_ENV)),
@@ -115,6 +138,12 @@ class Settings(BaseSettings):
             raise ValueError("MAX_FOLDER_DEPTH must be a positive integer.")
         if self.MAX_NAME_LENGTH <= 0:
             raise ValueError("MAX_NAME_LENGTH must be a positive integer.")
+        if self.MAX_CONCURRENT_JOBS <= 0:
+            raise ValueError("MAX_CONCURRENT_JOBS must be a positive integer.")
+        if self.MAX_ACTIVE_JOBS_PER_USER <= 0:
+            raise ValueError("MAX_ACTIVE_JOBS_PER_USER must be a positive integer.")
+        if self.JOB_TIMEOUT_SECONDS <= 0:
+            raise ValueError("JOB_TIMEOUT_SECONDS must be a positive integer.")
 
 
 settings = Settings()

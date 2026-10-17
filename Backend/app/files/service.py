@@ -45,14 +45,24 @@ class FileService:
         Deletes a single file.
         In one transaction:
         1. Checks ownership.
-        2. Enqueues imagekit_file_id into storage_deletions.
-        3. Deletes database row.
-        4. Commits and wakes storage cleaner.
+        2. Cancels any active jobs for this file.
+        3. Enqueues imagekit_file_id into storage_deletions.
+        4. Deletes database row (cascade deletes job rows).
+        5. Commits and wakes storage cleaner.
         """
         file = await cls.get_file(db, owner_id, file_id)
+
+        # Cancel active in-memory tasks for jobs of this file
+        from app.db.models.job import Job
+        from app.jobs.runner import cancel_running_task
+        jobs_stmt = select(Job.id).where(Job.file_id == file_id)
+        job_ids = (await db.execute(jobs_stmt)).scalars().all()
+        for jid in job_ids:
+            cancel_running_task(jid)
 
         db.add(StorageDeletion(imagekit_file_id=file.imagekit_file_id))
         await db.delete(file)
         await db.commit()
 
         wake_cleaner()
+
