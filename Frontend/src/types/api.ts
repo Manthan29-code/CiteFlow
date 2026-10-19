@@ -110,9 +110,15 @@ export interface ReviewAuthor {
 
 export interface ReviewConflict {
   field: string;
-  values?: Array<{ source: string; value: unknown }>;
+  reason?: string;
+  crossref?: unknown;
+  openalex?: unknown;
   crossref_val?: unknown;
   openalex_val?: unknown;
+  crossref_title?: string;
+  openalex_title?: string;
+  candidate_options?: Array<Record<string, unknown>>;
+  values?: Array<{ source: string; value: unknown }>;
 }
 
 export interface ReviewFieldItem {
@@ -124,10 +130,15 @@ export interface ReviewFieldItem {
 
 export interface ReviewInterrupt {
   kind: 'user_review';
+  selected_metadata?: Record<string, unknown>;
   record?: Record<string, unknown>;
+  title?: string;
   fields?: ReviewFieldItem[];
   conflicts?: ReviewConflict[];
   warnings?: string[];
+  validation_errors?: string[];
+  candidate_options?: Array<Record<string, unknown>>;
+  field_provenance?: Record<string, string>;
 }
 
 export type JobInterrupt = ConfirmTitleInterrupt | ReviewInterrupt | Record<string, unknown>;
