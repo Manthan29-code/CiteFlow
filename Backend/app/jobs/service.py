@@ -104,6 +104,41 @@ class JobService:
         return new_job, True
 
     @classmethod
+    def _enrich_pending_interrupt(cls, job: Job) -> None:
+        """Enrich missing journal_abbreviation in pending_interrupt or result_metadata if journal exists."""
+        if not job:
+            return
+        try:
+            from citegen.metadata.abbreviations import get_journal_abbreviation
+
+            # 1. Enrich pending_interrupt
+            if job.pending_interrupt and isinstance(job.pending_interrupt, dict):
+                pi = dict(job.pending_interrupt)
+                updated = False
+                for key in ("selected_metadata", "record"):
+                    rec = pi.get(key)
+                    if isinstance(rec, dict) and not rec.get("journal_abbreviation") and rec.get("journal"):
+                        abbr, _ = get_journal_abbreviation(rec["journal"])
+                        if abbr:
+                            rec = dict(rec)
+                            rec["journal_abbreviation"] = abbr
+                            pi[key] = rec
+                            updated = True
+                if updated:
+                    job.pending_interrupt = pi
+
+            # 2. Enrich result_metadata
+            if job.result_metadata and isinstance(job.result_metadata, dict):
+                rm = dict(job.result_metadata)
+                if not rm.get("journal_abbreviation") and rm.get("journal"):
+                    abbr, _ = get_journal_abbreviation(rm["journal"])
+                    if abbr:
+                        rm["journal_abbreviation"] = abbr
+                        job.result_metadata = rm
+        except Exception as e:
+            logger.debug("Failed to enrich job abbreviation: %s", e)
+
+    @classmethod
     async def get_job(cls, db: AsyncSession, owner_id: UUID, job_id: UUID) -> Job:
         """Fetches a job owned by owner_id or raises 404."""
         stmt = select(Job).where(Job.id == job_id, Job.owner_id == owner_id)
@@ -113,6 +148,7 @@ class JobService:
                 status_code=404,
                 detail={"error": {"code": "job_not_found", "message": "Job not found.", "details": {}}},
             )
+        cls._enrich_pending_interrupt(job)
         return job
 
     @classmethod
@@ -159,6 +195,9 @@ class JobService:
             raw_cursor = f"{last_item.created_at.isoformat()}|{last_item.id}"
             next_cursor = base64.b64encode(raw_cursor.encode("utf-8")).decode("utf-8")
             rows = rows[:limit]
+
+        for r in rows:
+            cls._enrich_pending_interrupt(r)
 
         return rows, next_cursor
 

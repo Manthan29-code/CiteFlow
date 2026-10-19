@@ -178,11 +178,20 @@ def user_review_node(state: CitationState) -> Dict[str, Any]:
     Interrupt node for user metadata review and corrections.
     Side-effect free; re-executed from top on resume.
     """
+    selected_meta = state.get("selected_metadata")
+    if selected_meta and isinstance(selected_meta, dict):
+        if not selected_meta.get("journal_abbreviation") and selected_meta.get("journal"):
+            from citegen.metadata.abbreviations import get_journal_abbreviation
+            abbr, _ = get_journal_abbreviation(selected_meta["journal"])
+            if abbr:
+                selected_meta = dict(selected_meta)
+                selected_meta["journal_abbreviation"] = abbr
+
     payload = {
         "kind": "user_review",
         "pdf_path": state.get("input_pdf_path"),
         "title": state.get("input_title"),
-        "selected_metadata": state.get("selected_metadata"),
+        "selected_metadata": selected_meta,
         "candidate_options": state.get("candidate_options", []),
         "field_provenance": state.get("field_provenance", {}),
         "conflicts": state.get("conflicts", []),

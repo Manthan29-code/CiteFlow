@@ -207,6 +207,13 @@ def merge_metadata(
         field_provenance["journal_abbreviation"] = rec_openalex.field_provenance.get(
             "journal_abbreviation", "openalex"
         )
+    elif not journal_abbrev and journal:
+        from citegen.metadata.abbreviations import get_journal_abbreviation
+        derived_abbrev, _ = get_journal_abbreviation(journal)
+        if derived_abbrev:
+            journal_abbrev = derived_abbrev
+            field_provenance["journal_abbreviation"] = "curated_abbreviation"
+
 
     # DOI URL
     doi_url = rec_crossref.doi_url or rec_openalex.doi_url
