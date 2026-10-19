@@ -28,12 +28,29 @@ export const jobsSlice = createSlice({
     setJob(state, action: PayloadAction<JobResponse>) {
       const job = action.payload;
       state.jobsById[job.id] = job;
-      state.jobsByFileId[job.file_id] = job;
 
-      // Automatically sync active modal triggers if this job is currently open
-      if (state.activeJobDrawerJobId === job.id) {
-        // state updated
+      const current = state.jobsByFileId[job.file_id];
+      if (
+        !current ||
+        new Date(job.created_at).getTime() > new Date(current.created_at).getTime() ||
+        (new Date(job.created_at).getTime() === new Date(current.created_at).getTime() && job.id >= current.id)
+      ) {
+        state.jobsByFileId[job.file_id] = job;
       }
+    },
+    setJobs(state, action: PayloadAction<JobResponse[]>) {
+      const jobs = action.payload;
+      jobs.forEach((job) => {
+        state.jobsById[job.id] = job;
+        const current = state.jobsByFileId[job.file_id];
+        if (
+          !current ||
+          new Date(job.created_at).getTime() > new Date(current.created_at).getTime() ||
+          (new Date(job.created_at).getTime() === new Date(current.created_at).getTime() && job.id >= current.id)
+        ) {
+          state.jobsByFileId[job.file_id] = job;
+        }
+      });
     },
     setStartingJob(state, action: PayloadAction<{ fileId: string; isStarting: boolean }>) {
       state.isStartingJobByFileId[action.payload.fileId] = action.payload.isStarting;
@@ -76,6 +93,7 @@ export const jobsSlice = createSlice({
 
 export const {
   setJob,
+  setJobs,
   setStartingJob,
   openJobDrawer,
   closeJobDrawer,

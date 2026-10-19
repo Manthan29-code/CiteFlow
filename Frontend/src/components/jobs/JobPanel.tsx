@@ -17,6 +17,9 @@ import {
   openTitleConfirmModal,
   openReviewModal,
   openTexPreviewModal,
+  openJobDrawer,
+  setJob,
+  setJobs,
 } from '@/store/slices/jobsSlice';
 import { addToast } from '@/store/slices/uiSlice';
 import { useJob } from '@/hooks/useJob';
@@ -40,11 +43,15 @@ export const JobPanel: React.FC = () => {
     if (job?.file_id) {
       listJobs({ fileId: job.file_id, limit: 10 })
         .then((res) => {
-          setHistory(res.items || []);
+          const items = res.items || [];
+          setHistory(items);
+          if (items.length > 0) {
+            dispatch(setJobs(items));
+          }
         })
         .catch(() => {});
     }
-  }, [job?.file_id, job?.status]);
+  }, [dispatch, job?.file_id, job?.status]);
 
   if (!activeJobId || !job) return null;
 
@@ -68,9 +75,10 @@ export const JobPanel: React.FC = () => {
   const handleRetry = async () => {
     setIsRetrying(true);
     try {
-      await createJob(job.file_id, job.tex_mode);
+      const newJob = await createJob(job.file_id, job.tex_mode);
+      dispatch(setJob(newJob));
+      dispatch(openJobDrawer(newJob.id));
       dispatch(addToast({ type: 'info', message: 'New citation job started.' }));
-      dispatch(closeJobDrawer());
     } catch (err: unknown) {
       dispatch(addToast({ type: 'error', message: getErrorMessage(err) }));
     } finally {
@@ -280,10 +288,26 @@ export const JobPanel: React.FC = () => {
                 ) : (
                   <div className="divide-y divide-border-light rounded-xl border border-border-light bg-white overflow-hidden text-xs">
                     {history.map((h) => (
-                      <div key={h.id} className="p-3 flex items-center justify-between">
+                      <div
+                        key={h.id}
+                        onClick={() => {
+                          if (h.id !== activeJobId) {
+                            dispatch(openJobDrawer(h.id));
+                          }
+                        }}
+                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
+                          h.id === activeJobId ? 'bg-indigo-50/70 border-l-2 border-l-indigo-600' : 'hover:bg-cream-100'
+                        }`}
+                        title="Click to view details for this run"
+                      >
                         <div>
-                          <div className="font-medium text-charcoal-900 capitalize">
-                            {h.status.replace(/_/g, ' ')}
+                          <div className="font-medium text-charcoal-900 capitalize flex items-center gap-1.5">
+                            <span>{h.status.replace(/_/g, ' ')}</span>
+                            {h.id === activeJobId && (
+                              <span className="text-[9px] font-mono uppercase bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tracking-wider">
+                                Current
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] font-mono text-charcoal/40">
                             {formatDate(h.created_at)} &bull; {h.tex_mode}
@@ -292,7 +316,11 @@ export const JobPanel: React.FC = () => {
 
                         {h.status === 'succeeded' && (
                           <button
-                            onClick={() => dispatch(openTexPreviewModal(h.id))}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dispatch(openTexPreviewModal(h.id));
+                            }}
                             className="text-xs text-indigo-brand hover:underline font-medium font-mono"
                           >
                             View .tex

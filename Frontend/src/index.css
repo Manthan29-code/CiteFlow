@@ -34,6 +34,17 @@
   }
 }
 
+@layer utilities {
+  /* Invisible scrollbar utility for clean sliding */
+  .scrollbar-none {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+
 /* Editorial Wave Component from Design Spec */
 .wave-container {
   position: absolute;

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loadMoreFolderItems, fetchFolder } from '@/store/slices/explorerSlice';
-import { setJob } from '@/store/slices/jobsSlice';
+import { setJobs } from '@/store/slices/jobsSlice';
 import { listJobs } from '@/api/jobs';
 import { FileRow } from './FileRow';
 import { EmptyState } from './EmptyState';
@@ -28,11 +28,11 @@ export const FileList: React.FC<FileListProps> = ({ onUploadClick }) => {
 
   // Sync existing jobs for status badges on page reload
   useEffect(() => {
-    listJobs({ limit: 100 })
+    listJobs({ limit: 200 })
       .then((res) => {
-        (res.items || []).forEach((job) => {
-          dispatch(setJob(job));
-        });
+        if (res.items && res.items.length > 0) {
+          dispatch(setJobs(res.items));
+        }
       })
       .catch(() => {});
   }, [dispatch, folderData?.folder?.id]);

@@ -290,7 +290,7 @@ export const ReviewFormInner: React.FC<ReviewFormInnerProps> = ({ jobId }) => {
       setValidationWarning(warnMsg);
       dispatch(
         addToast({
-          type: 'warning',
+          type: 'info',
           message: warnMsg,
         })
       );
@@ -439,7 +439,7 @@ export const ReviewFormInner: React.FC<ReviewFormInnerProps> = ({ jobId }) => {
           ? 'Resolve differences detected between Crossref and OpenAlex.'
           : 'Inspect cross-referenced metadata before generating your LaTeX citation document.'
       }
-      maxWidth={viewMode === 'wizard' ? 'lg' : 'xl'}
+      maxWidth="75p"
     >
       <div className="space-y-5 font-sans">
         {/* Error Banners */}
@@ -783,7 +783,7 @@ export const ReviewFormInner: React.FC<ReviewFormInnerProps> = ({ jobId }) => {
             </div>
 
             {/* Navigation & Submission Footer */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-border-light">
+            <div className="sticky bottom-0 bg-cream/95 backdrop-blur-xs pt-3.5 pb-1 border-t border-border-light -mx-6 px-6 mt-4 z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -1006,7 +1006,7 @@ export const ReviewFormInner: React.FC<ReviewFormInnerProps> = ({ jobId }) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-border-light">
+            <div className="sticky bottom-0 bg-cream/95 backdrop-blur-xs pt-3.5 pb-1 border-t border-border-light -mx-6 px-6 mt-4 z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <Button
                 type="button"
                 variant="ghost"

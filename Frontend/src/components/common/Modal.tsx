@@ -10,7 +10,7 @@ export interface ModalProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '75p';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -47,6 +47,10 @@ export const Modal: React.FC<ModalProps> = ({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '75p': 'w-[92vw] sm:w-[85vw] lg:w-[75vw] max-w-[75vw]',
   };
 
   return (
@@ -72,13 +76,13 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             className={cn(
-              'relative w-full rounded-2xl bg-cream border border-border-light shadow-2xl overflow-hidden p-6 text-charcoal z-10',
+              'relative w-full max-h-[82vh] flex flex-col rounded-2xl bg-cream border border-border-light shadow-2xl overflow-hidden text-charcoal z-10 my-auto',
               maxWidthClasses[maxWidth],
               className
             )}
           >
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-border-light">
+            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border-light shrink-0 bg-cream">
               <div>
                 <h3 className="font-serif text-xl font-bold tracking-tight text-charcoal-900">
                   {title}
@@ -93,14 +97,16 @@ export const Modal: React.FC<ModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Close dialog"
-                className="rounded-lg p-1.5 text-charcoal/50 hover:text-charcoal hover:bg-cream-200 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-brand"
+                className="rounded-lg p-1.5 text-charcoal/50 hover:text-charcoal hover:bg-cream-200 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-brand shrink-0 ml-3 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="mt-4">{children}</div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-none">
+              {children}
+            </div>
           </motion.div>
         </div>
       )}
