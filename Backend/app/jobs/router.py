@@ -44,6 +44,34 @@ async def create_job(
     return JobResponse.model_validate(job)
 
 
+@router.post(
+    "/folders/{folder_id}/jobs",
+    response_model=list[JobResponse],
+    dependencies=[Depends(check_csrf)],
+    operation_id="jobs_create_for_folder",
+)
+async def create_folder_jobs(
+    folder_id: UUID,
+    body: JobCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> list[JobResponse]:
+    """
+    Starts citation generation for all PDF files in a folder.
+    Skips files that already have a successful citation unless forced.
+    Returns the list of jobs.
+    """
+    jobs = await JobService.create_folder_jobs(
+        db=db,
+        storage=storage,
+        owner_id=current_user.id,
+        folder_id=folder_id,
+        tex_mode=body.tex_mode,
+    )
+    return [JobResponse.model_validate(j) for j in jobs]
+
+
 @router.get(
     "/jobs/{id}",
     response_model=JobResponse,

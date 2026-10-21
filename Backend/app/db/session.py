@@ -3,10 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-# Engine setup
+# Engine setup with pre-ping and recycling to avoid stale/dropped connections
 engine = create_async_engine(
     settings.async_database_url,
     pool_size=settings.DB_POOL_SIZE,
+    pool_pre_ping=True,
+    pool_recycle=300,
     echo=(settings.LOG_LEVEL.upper() == "DEBUG"),
     future=True,
 )

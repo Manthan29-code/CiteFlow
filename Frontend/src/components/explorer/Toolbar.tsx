@@ -1,14 +1,16 @@
-import React, { useRef } from 'react';
-import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles } from 'lucide-react';
+import React, { useRef, useState, useMemo } from 'react';
+import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
 import { setSearchQuery, setViewMode } from '@/store/slices/explorerSlice';
-import { openJobDrawer } from '@/store/slices/jobsSlice';
+import { openJobDrawer, setJobs } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
 import { UploadQueueItem } from '@/types/api';
 import { env } from '@/lib/env';
 import { formatBytes } from '@/lib/format';
+import { createFolderJobs } from '@/api/jobs';
+import { getErrorMessage } from '@/api/errors';
 
 export const Toolbar: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -17,6 +19,12 @@ export const Toolbar: React.FC = () => {
   const { searchQuery, viewMode, folderData } = useAppSelector((state) => state.explorer);
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
   const currentFolder = folderData?.folder;
+
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+
+  const pdfFiles = useMemo(() => {
+    return (folderData?.files || []).filter((f) => f.ext.toLowerCase() === 'pdf');
+  }, [folderData?.files]);
 
   // Find active or recent job for easy re-opening
   const activeJob = React.useMemo(
@@ -97,6 +105,35 @@ export const Toolbar: React.FC = () => {
     e.target.value = '';
   };
 
+  const handleGenerateFolderCitations = async () => {
+    if (!currentFolder?.id || isBatchGenerating) return;
+    setIsBatchGenerating(true);
+    try {
+      const jobs = await createFolderJobs(currentFolder.id);
+      dispatch(setJobs(jobs));
+      const newlyStarted = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length;
+      dispatch(
+        addToast({
+          type: 'success',
+          message:
+            newlyStarted > 0
+              ? `Started citation generation for ${newlyStarted} files in "${currentFolder.name}".`
+              : `All citations in "${currentFolder.name}" are already generated or processing.`,
+        })
+      );
+      // NOTE: We deliberately do NOT call openJobDrawer() so the side drawer remains closed during batch!
+    } catch (err: unknown) {
+      dispatch(
+        addToast({
+          type: 'error',
+          message: `Failed to start folder citations: ${getErrorMessage(err)}`,
+        })
+      );
+    } finally {
+      setIsBatchGenerating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-border-light">
       {/* Left Action Buttons */}
@@ -121,16 +158,36 @@ export const Toolbar: React.FC = () => {
           <span>Upload PDF</span>
         </Button>
 
-        {activeJob && (
+        {pdfFiles.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => dispatch(openJobDrawer(activeJob.id))}
-            className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/60"
-            title="Open Citation Pipeline"
+            onClick={handleGenerateFolderCitations}
+            disabled={isBatchGenerating}
+            className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100/70 shadow-xs"
+            title={`Generate .tex citation for all ${pdfFiles.length} PDF files in "${currentFolder?.name || 'this folder'}"`}
           >
-            <Sparkles className="w-4 h-4 text-indigo-brand" />
-            <span>Citation Pipeline</span>
+            {isBatchGenerating ? (
+              <Loader2 className="w-4 h-4 text-indigo-brand animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-indigo-brand" />
+            )}
+            <span>
+              {isBatchGenerating ? 'Starting...' : `Generate Folder .tex (${pdfFiles.length})`}
+            </span>
+          </Button>
+        )}
+
+        {activeJob && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => dispatch(openJobDrawer(activeJob.id))}
+            className="gap-1.5 text-charcoal/60 hover:text-indigo-brand"
+            title="Open Citation Pipeline details"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-xs">Pipeline</span>
           </Button>
         )}
 

@@ -9,6 +9,13 @@ export async function createJob(fileId: string, texMode: TexMode = 'standalone')
   });
 }
 
+export async function createFolderJobs(folderId: string, texMode: TexMode = 'standalone'): Promise<JobResponse[]> {
+  return apiClient<JobResponse[]>(`/folders/${folderId}/jobs`, {
+    method: 'POST',
+    body: JSON.stringify({ tex_mode: texMode }),
+  });
+}
+
 export async function getJobDetail(jobId: string): Promise<JobResponse> {
   return apiClient<JobResponse>(`/jobs/${jobId}`, {
     method: 'GET',

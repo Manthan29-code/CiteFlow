@@ -35,6 +35,7 @@ def get_checkpointer() -> Any:
             pool = AsyncConnectionPool(
                 conninfo=raw_url,
                 max_size=settings.DB_POOL_SIZE or 10,
+                max_idle=300.0,
                 open=False,
                 kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
             )
@@ -74,6 +75,7 @@ async def setup_checkpointer() -> None:
             _async_pool = AsyncConnectionPool(
                 conninfo=raw_url,
                 max_size=settings.DB_POOL_SIZE or 10,
+                max_idle=300.0,
                 open=False,
                 kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
             )

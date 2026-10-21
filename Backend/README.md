@@ -37,7 +37,7 @@ The backend loads configuration from the repository's root `.env` file. Copy the
 ```bash
 # App settings
 APP_ENV=development
-APP_HOST=0.0.0.0
+APP_HOST=127.0.0.1
 APP_PORT=8000
 LOG_LEVEL=INFO
 CORS_ALLOW_ORIGINS=http://localhost:5173
@@ -80,7 +80,7 @@ alembic upgrade head
 ### 3. Launch the Server
 ```bash
 cd Backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Interactive OpenAPI documentation is available at: `http://localhost:8000/docs` or `http://localhost:8000/openapi.json`.

@@ -104,6 +104,68 @@ class JobService:
         return new_job, True
 
     @classmethod
+    async def create_folder_jobs(
+        cls,
+        db: AsyncSession,
+        storage: StorageBackend,
+        owner_id: UUID,
+        folder_id: UUID,
+        tex_mode: str = "standalone",
+        force: bool = False,
+    ) -> List[Job]:
+        """
+        Creates or returns citation generation jobs for all PDF files in folder_id.
+        Skips files that already have an active or succeeded citation job (unless force=True).
+        """
+        stmt = (
+            select(File)
+            .where(File.folder_id == folder_id, File.owner_id == owner_id, File.ext == "pdf")
+            .order_by(File.name.asc())
+        )
+        files = list((await db.execute(stmt)).scalars().all())
+        if not files:
+            return []
+
+        jobs: List[Job] = []
+        for file_rec in files:
+            try:
+                # If not forcing, check if file already has succeeded job
+                if not force:
+                    succ_stmt = (
+                        select(Job)
+                        .where(
+                            Job.file_id == file_rec.id,
+                            Job.owner_id == owner_id,
+                            Job.status == "succeeded",
+                        )
+                        .order_by(Job.created_at.desc(), Job.id.desc())
+                        .limit(1)
+                    )
+                    existing_succ = (await db.execute(succ_stmt)).scalars().first()
+                    if existing_succ:
+                        cls._enrich_pending_interrupt(existing_succ)
+                        jobs.append(existing_succ)
+                        continue
+
+                job, _ = await cls.create_job(
+                    db=db,
+                    storage=storage,
+                    owner_id=owner_id,
+                    file_id=file_rec.id,
+                    tex_mode=tex_mode,
+                )
+                cls._enrich_pending_interrupt(job)
+                jobs.append(job)
+            except HTTPException as e:
+                if e.status_code == 429:
+                    logger.warning(
+                        f"Batch folder job limit reached for user {owner_id} at file {file_rec.id}: {e.detail}"
+                    )
+                    break
+                raise
+        return jobs
+
+    @classmethod
     def _enrich_pending_interrupt(cls, job: Job) -> None:
         """Enrich missing journal_abbreviation in pending_interrupt or result_metadata if journal exists."""
         if not job:
@@ -275,6 +337,8 @@ class JobService:
         # Build resume payload
         if resume_data.action == "select":
             resume_payload = {"action": "select", "index": resume_data.index}
+            if resume_data.title:
+                resume_payload["title"] = resume_data.title
         elif resume_data.action == "custom":
             resume_payload = {"action": "custom", "title": resume_data.title}
         elif resume_data.action == "accept":

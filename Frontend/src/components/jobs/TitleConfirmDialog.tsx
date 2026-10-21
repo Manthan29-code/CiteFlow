@@ -20,7 +20,8 @@ export const TitleConfirmDialog: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const pending = job?.pending_interrupt as ConfirmTitleInterrupt | undefined;
-  const candidates: ConfirmTitleCandidate[] = pending?.candidates || [];
+  // Display only top 10 ranked candidates
+  const candidates: ConfirmTitleCandidate[] = (pending?.candidates || []).slice(0, 10);
   const currentChoice = selectedOption !== null ? selectedOption : (candidates.length > 0 ? 0 : 'custom');
 
   const handleClose = () => {
@@ -80,9 +81,11 @@ export const TitleConfirmDialog: React.FC = () => {
     } else {
       // Radio selection
       const index = Number(currentChoice);
+      const chosenCand = candidates[index];
+      const chosenTitle = chosenCand?.title || '';
       setIsSubmitting(true);
       try {
-        await resume({ action: 'select', index });
+        await resume({ action: 'select', index, title: chosenTitle });
         dispatch(
           addToast({
             type: 'success',

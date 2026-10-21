@@ -139,7 +139,7 @@ def confirm_title_node(state: CitationState) -> Dict[str, Any]:
     payload = {
         "kind": "confirm_title",
         "pdf_path": state.get("input_pdf_path"),
-        "candidates": state.get("title_candidates", []),
+        "candidates": (state.get("title_candidates") or [])[:10],
         "selected_title": state.get("selected_title"),
         "attempts": state.get("title_attempts", 0),
     }
@@ -155,6 +155,19 @@ def confirm_title_node(state: CitationState) -> Dict[str, Any]:
                 "validation_errors": ["User skipped title confirmation"],
             }
         chosen = user_response.get("title", "")
+        if not chosen and ("index" in user_response or "candidate_index" in user_response):
+            candidates = state.get("title_candidates") or []
+            idx = user_response.get("index") if "index" in user_response else user_response.get("candidate_index")
+            if isinstance(idx, int) and 0 <= idx < len(candidates):
+                cand = candidates[idx]
+                chosen = cand.get("title", "") if isinstance(cand, dict) else str(cand)
+        if not chosen:
+            candidates = state.get("title_candidates") or []
+            if candidates:
+                cand0 = candidates[0]
+                chosen = cand0.get("title", "") if isinstance(cand0, dict) else str(cand0)
+            elif state.get("selected_title"):
+                chosen = state["selected_title"]
     elif isinstance(user_response, str):
         if user_response.strip().lower() == "skip":
             return {

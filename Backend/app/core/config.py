@@ -14,7 +14,7 @@ BACKEND_ENV = BACKEND_DIR / ".env"
 class Settings(BaseSettings):
     # App
     APP_ENV: str = Field(default="development", description="development | production")
-    APP_HOST: str = Field(default="0.0.0.0")
+    APP_HOST: str = Field(default="127.0.0.1")
     APP_PORT: int = Field(default=8000)
     LOG_LEVEL: str = Field(default="INFO")
     CORS_ALLOW_ORIGINS: str = Field(default="http://localhost:5173")

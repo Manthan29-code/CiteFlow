@@ -70,7 +70,9 @@ export const Navbar: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-xs font-mono tracking-wide hover:bg-amber-100 transition-colors animate-pulse cursor-pointer shadow-xs"
           >
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-            <span>{waitingJobs.length} Need Input</span>
+            <span>
+              {waitingJobs.length} {waitingJobs.length === 1 ? 'Review Pending' : 'Reviews Pending'}
+            </span>
           </button>
         )}
 

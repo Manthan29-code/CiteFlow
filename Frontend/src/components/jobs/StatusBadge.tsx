@@ -63,7 +63,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ job, className, size =
         };
       case 'needs_review':
         return {
-          label: 'Review Metadata',
+          label: 'Review Needed',
           icon: <AlertTriangle className="w-3 h-3 text-amber-600 animate-pulse" />,
           styles: 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 ring-1 ring-amber-400/30',
         };
