@@ -7,6 +7,7 @@ from .service import AuthService
 from ..core.config import settings
 from ..core.deps import check_csrf, get_current_user, get_db
 from ..core.limits import get_client_ip, limiter
+from ..core.security import generate_csrf_token
 from ..db.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -96,6 +97,7 @@ async def login(
         db, body.email, body.password
     )
     set_auth_cookies(response, access_token, refresh_token, csrf_token)
+    response.headers["X-CSRF-Token"] = csrf_token
     response.headers["Cache-Control"] = "no-store"
     return UserResponse.model_validate(user)
 
@@ -111,7 +113,9 @@ async def refresh(
     refresh_token: Optional[str] = Cookie(default=None),
 ) -> MessageResponse:
     new_access, new_refresh = await AuthService.refresh(db, refresh_token or "")
-    set_auth_cookies(response, new_access, new_refresh)
+    new_csrf = generate_csrf_token()
+    set_auth_cookies(response, new_access, new_refresh, new_csrf)
+    response.headers["X-CSRF-Token"] = new_csrf
     response.headers["Cache-Control"] = "no-store"
     return MessageResponse(message="Token rotated successfully.")
 
@@ -141,6 +145,46 @@ async def logout(
 async def get_me(
     response: Response,
     current_user: Annotated[User, Depends(get_current_user)],
+    csrf_token: Optional[str] = Cookie(default=None),
 ) -> UserResponse:
+    if not csrf_token:
+        csrf_token = generate_csrf_token()
+        response.set_cookie(
+            key="csrf_token",
+            value=csrf_token,
+            max_age=settings.REFRESH_TOKEN_DAYS * 86400,
+            httponly=False,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            domain=settings.COOKIE_DOMAIN or None,
+            path="/",
+        )
+    response.headers["X-CSRF-Token"] = csrf_token
     response.headers["Cache-Control"] = "no-store"
     return UserResponse.model_validate(current_user)
+
+
+@router.get(
+    "/csrf",
+    operation_id="auth_get_csrf",
+)
+async def get_csrf_token_endpoint(
+    response: Response,
+    csrf_token: Optional[str] = Cookie(default=None),
+) -> dict[str, str]:
+    """Endpoint for cross-origin SPAs to acquire a CSRF token and cookie."""
+    if not csrf_token:
+        csrf_token = generate_csrf_token()
+        response.set_cookie(
+            key="csrf_token",
+            value=csrf_token,
+            max_age=settings.REFRESH_TOKEN_DAYS * 86400,
+            httponly=False,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            domain=settings.COOKIE_DOMAIN or None,
+            path="/",
+        )
+    response.headers["X-CSRF-Token"] = csrf_token
+    response.headers["Cache-Control"] = "no-store"
+    return {"csrf_token": csrf_token}

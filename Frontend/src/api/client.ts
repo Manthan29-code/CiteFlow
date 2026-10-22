@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { getCsrfToken } from './csrf';
+import { getCsrfToken, setCsrfToken } from './csrf';
 import { ApiError } from './errors';
 
 let refreshPromise: Promise<boolean> | null = null;
@@ -19,6 +19,11 @@ async function executeSingleFlightRefresh(): Promise<boolean> {
           credentials: 'include',
           headers,
         });
+
+        const newCsrf = res.headers.get('X-CSRF-Token');
+        if (newCsrf) {
+          setCsrfToken(newCsrf);
+        }
 
         return res.ok;
       } catch {
@@ -42,7 +47,24 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
 
   // Add CSRF token for mutating requests
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    const csrfToken = getCsrfToken();
+    let csrfToken = getCsrfToken();
+    if (
+      !csrfToken &&
+      !endpoint.includes('/auth/login') &&
+      !endpoint.includes('/auth/register') &&
+      !endpoint.includes('/auth/csrf')
+    ) {
+      try {
+        const csrfRes = await fetch(`${env.VITE_API_BASE_URL}/auth/csrf`, { credentials: 'include' });
+        const csrfData = await csrfRes.json();
+        if (csrfData?.csrf_token) {
+          csrfToken = csrfData.csrf_token;
+          setCsrfToken(csrfToken);
+        }
+      } catch {
+        // Fall back to existing token check
+      }
+    }
     if (csrfToken && !headers.has('X-CSRF-Token')) {
       headers.set('X-CSRF-Token', csrfToken);
     }
@@ -62,6 +84,12 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
     });
   } catch {
     throw new ApiError(0, 'network_error', 'Cannot reach the server. Check your connection.');
+  }
+
+  // Update CSRF token from response headers if provided
+  const serverCsrf = response.headers.get('X-CSRF-Token');
+  if (serverCsrf) {
+    setCsrfToken(serverCsrf);
   }
 
   const requestId = response.headers.get('X-Request-ID');

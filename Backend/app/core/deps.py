@@ -76,14 +76,23 @@ async def check_csrf(
 ) -> None:
     """
     Double-submit CSRF verification for state-changing HTTP requests.
-    Exempts GET, HEAD, OPTIONS and initial auth endpoints (login, register).
+    Exempts GET, HEAD, OPTIONS and initial auth endpoints (login, register, csrf).
+    Supports cross-origin SPA deployments where cookies and headers are synchronized.
     """
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return
 
     path = request.url.path
-    if path in ("/api/v1/auth/login", "/api/v1/auth/register"):
+    if path in ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/csrf"):
         return
 
-    if not x_csrf_token or not csrf_token or x_csrf_token != csrf_token:
-        raise CsrfFailedError("CSRF token missing or incorrect.")
+    if not x_csrf_token:
+        raise CsrfFailedError("CSRF token missing in request header.")
+
+    if csrf_token and x_csrf_token != csrf_token:
+        raise CsrfFailedError("CSRF token does not match cookie.")
+
+    if not csrf_token:
+        origin = request.headers.get("origin")
+        if not origin or origin not in settings.cors_origins_list:
+            raise CsrfFailedError("CSRF token missing or incorrect.")
