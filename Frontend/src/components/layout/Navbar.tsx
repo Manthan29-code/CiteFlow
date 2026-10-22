@@ -54,7 +54,7 @@ export const Navbar: React.FC = () => {
 
       {/* Center Label from Design Spec */}
       <div className="hidden md:flex items-center gap-2">
-        <span className="font-mono text-xs uppercase tracking-[0.3em] text-charcoal/60">
+        <span className="font-mono text-xs uppercase tracking-[0.3em] text-charcoal/60" style={{ fontSize: '20px' }}>
           Organic Intelligence Library
         </span>
       </div>

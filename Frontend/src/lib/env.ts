@@ -22,6 +22,7 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
+  VITE_ACTIVE_JOBS_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(8000),
 });
 
 let parsedEnv: z.infer<typeof envSchema>;

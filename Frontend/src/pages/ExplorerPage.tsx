@@ -19,6 +19,7 @@ import { DropZone } from '@/components/upload/DropZone';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { addToast } from '@/store/slices/uiSlice';
 import { UploadQueueItem } from '@/types/api';
+import { useActiveJobsSync } from '@/hooks/useActiveJobsSync';
 import { env } from '@/lib/env';
 import { formatBytes } from '@/lib/format';
 
@@ -28,6 +29,9 @@ export const ExplorerPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { folderId } = useParams<{ folderId?: string }>();
   const activeId = folderId || 'root';
+
+  // Reactively sync active jobs every 8s and on tab focus
+  useActiveJobsSync();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const breadcrumbs = useAppSelector((state) => state.explorer.folderData?.breadcrumbs) || EMPTY_BREADCRUMBS;
