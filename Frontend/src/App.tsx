@@ -10,6 +10,10 @@ const AppContent: React.FC = () => {
   const { checkSession } = useAuth();
 
   useEffect(() => {
+    // Restore the user's theme preference before they start navigating.
+    const savedTheme = window.localStorage.getItem('citeflow-theme');
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+
     // Attempt session restore on application load
     checkSession();
   }, [checkSession]);

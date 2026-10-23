@@ -9,17 +9,17 @@ export default {
     extend: {
       colors: {
         cream: {
-          50: '#fdfcfb',
-          100: '#fcfbf9',
-          200: '#f7f5f0',
-          300: '#ede8df',
-          DEFAULT: '#fcfbf9',
+          50: 'rgb(var(--cream-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--cream-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--cream-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--cream-300-rgb) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--cream-default-rgb) / <alpha-value>)',
         },
         charcoal: {
-          900: '#171717',
-          800: '#212121',
-          700: '#2b2b2b',
-          DEFAULT: '#171717',
+          900: 'rgb(var(--charcoal-900-rgb) / <alpha-value>)',
+          800: 'rgb(var(--charcoal-800-rgb) / <alpha-value>)',
+          700: 'rgb(var(--charcoal-700-rgb) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--charcoal-900-rgb) / <alpha-value>)',
         },
         indigo: {
           brand: '#4338ca',
@@ -28,8 +28,8 @@ export default {
           muted: '#6366f1',
         },
         border: {
-          light: '#e5e5e5',
-          dark: '#2e2e2e',
+          light: 'rgb(var(--border-light-rgb) / <alpha-value>)',
+          dark: 'rgb(var(--border-dark-rgb) / <alpha-value>)',
         }
       },
       fontFamily: {

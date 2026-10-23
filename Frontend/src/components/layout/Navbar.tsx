@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, BookOpen, User as UserIcon, AlertTriangle, Menu } from 'lucide-react';
+import { LogOut, BookOpen, User as UserIcon, AlertTriangle, Menu, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openTitleConfirmModal, openReviewModal } from '@/store/slices/jobsSlice';
@@ -14,6 +14,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const [isDarkMode, setIsDarkMode] = React.useState(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('citeflow-theme') === 'dark'
+  );
+
+  const toggleTheme = () => {
+    const nextTheme = !isDarkMode;
+    setIsDarkMode(nextTheme);
+    document.documentElement.classList.toggle('dark', nextTheme);
+    window.localStorage.setItem('citeflow-theme', nextTheme ? 'dark' : 'light');
+  };
 
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
   const waitingJobs = React.useMemo(
@@ -67,7 +77,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       </div>
 
       {/* Right User Controls & Status Indicator */}
-      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to night mode'}
+          aria-pressed={isDarkMode}
+          title={isDarkMode ? 'Switch to light mode' : 'Switch to night mode'}
+          className="inline-flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-border-light bg-white text-charcoal-800 hover:bg-cream-200 dark:border-border-dark dark:bg-charcoal-800 dark:text-cream-100 dark:hover:bg-charcoal-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+        >
+          {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
+        </button>
         {/* Needs Attention Indicator */}
         {waitingJobs.length > 0 && (
           <button
@@ -96,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         {user && (
           <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-white border border-border-light text-xs font-sans font-medium text-charcoal-800 shadow-sm">
             <UserIcon className="w-3.5 h-3.5 text-indigo-brand" />
-            <span className="max-w-[76px] sm:max-w-[140px] truncate">{user.email}</span>
+            <span className="hidden sm:inline max-w-[140px] truncate">{user.email}</span>
           </div>
         )}
 
