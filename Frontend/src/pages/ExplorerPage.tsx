@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFolder } from '@/store/slices/explorerSlice';
@@ -29,6 +29,7 @@ export const ExplorerPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { folderId } = useParams<{ folderId?: string }>();
   const activeId = folderId || 'root';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Reactively sync active jobs every 8s and on tab focus
   useActiveJobsSync();
@@ -108,14 +109,16 @@ export const ExplorerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col font-sans">
-      <Navbar />
+      <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-w-0">
         {/* Sidebar Navigation */}
-        <Sidebar />
+        <div id="folder-navigation">
+          <Sidebar mobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        </div>
 
         {/* Main Explorer Workspace */}
-        <main className="flex-1 min-w-0 px-4 pt-4 pb-[10px] sm:px-8 sm:pt-6 sm:pb-[10px] flex flex-col">
+        <main className="flex-1 min-w-0 w-full px-3 pt-3 pb-[10px] sm:px-8 sm:pt-6 sm:pb-[10px] flex flex-col">
           {/* Breadcrumb Hierarchy */}
           <div className="mb-4 shrink-0">
             <Breadcrumbs breadcrumbs={breadcrumbs} currentFolderId={activeId} />

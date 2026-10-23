@@ -107,7 +107,7 @@ export const JobPanel: React.FC = () => {
           className="fixed inset-0 bg-charcoal-900/40 backdrop-blur-xs"
         />
 
-        <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}

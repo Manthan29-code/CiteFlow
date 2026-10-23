@@ -1,12 +1,16 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, BookOpen, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { LogOut, BookOpen, User as UserIcon, AlertTriangle, Menu } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openTitleConfirmModal, openReviewModal } from '@/store/slices/jobsSlice';
 import { Button } from '@/components/common/Button';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleSidebar?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -39,13 +43,16 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-30 w-full h-20 bg-cream/90 backdrop-blur-md border-b border-border-light px-4 sm:px-8 flex items-center justify-between">
       {/* Brand Logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <button type="button" onClick={onToggleSidebar} aria-label="Toggle navigation sidebar" aria-controls="folder-navigation" className="md:hidden inline-flex items-center justify-center p-2 -ml-2 rounded-lg border border-border-light bg-white text-charcoal-800 hover:bg-cream-100 shrink-0">
+          <Menu className="w-5 h-5" />
+        </button>
         <Link to="/" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl bg-charcoal-900 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
             <BookOpen className="w-5 h-5 text-indigo-300" />
           </div>
           <div>
-            <span className="font-serif text-2xl font-bold tracking-tight text-charcoal-900">
+            <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-charcoal-900">
               Cite<span className="italic font-normal text-indigo-brand">Flow</span>
             </span>
           </div>
@@ -60,7 +67,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Right User Controls & Status Indicator */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
         {/* Needs Attention Indicator */}
         {waitingJobs.length > 0 && (
           <button
@@ -87,9 +94,9 @@ export const Navbar: React.FC = () => {
 
         {/* User Badge */}
         {user && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-border-light text-xs font-sans font-medium text-charcoal-800 shadow-sm">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-white border border-border-light text-xs font-sans font-medium text-charcoal-800 shadow-sm">
             <UserIcon className="w-3.5 h-3.5 text-indigo-brand" />
-            <span className="max-w-[140px] truncate">{user.email}</span>
+            <span className="max-w-[76px] sm:max-w-[140px] truncate">{user.email}</span>
           </div>
         )}
 

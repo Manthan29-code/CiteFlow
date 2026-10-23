@@ -135,12 +135,12 @@ export const TexPreviewDialog: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
               <div className="text-[11px] font-mono text-charcoal/40 uppercase">
                 {texContent.length} characters
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

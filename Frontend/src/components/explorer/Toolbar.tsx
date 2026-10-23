@@ -137,7 +137,7 @@ export const Toolbar: React.FC = () => {
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-border-light">
       {/* Left Action Buttons */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="primary"
           size="sm"
@@ -203,9 +203,9 @@ export const Toolbar: React.FC = () => {
       </div>
 
       {/* Right Controls: Search, View Switcher, Total count */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
         {/* Search Input */}
-        <div className="relative flex-1 sm:w-64">
+        <div className="relative flex-1 min-w-[140px] sm:w-64">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-charcoal/40" />
           <input
             type="text"

@@ -8,6 +8,7 @@ import {
   Plus,
   Home,
   Layers,
+  X,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal } from '@/store/slices/uiSlice';
@@ -113,7 +114,12 @@ const TreeNode: React.FC<TreeNodeProps> = ({ id, name, depth, currentFolderId, o
   );
 };
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const currentFolderId = useAppSelector((state) => state.explorer.currentFolderId);
@@ -136,10 +142,17 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside
-      aria-label="Folder Navigation Sidebar"
-      className="w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-[calc(100vh-5rem)] sticky top-20 overflow-y-auto"
-    >
+    <>
+      <button
+        type="button"
+        aria-label="Close navigation sidebar"
+        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-charcoal-900/40 backdrop-blur-sm md:hidden ${mobileOpen ? 'block' : 'hidden'}`}
+      />
+      <aside
+        aria-label="Folder Navigation Sidebar"
+        className={`w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-[calc(100dvh-5rem)] md:h-[calc(100vh-5rem)] md:sticky md:top-20 overflow-y-auto z-50 transition-transform duration-200 fixed md:relative top-20 md:top-20 bottom-0 md:bottom-auto left-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+      >
       {/* Sidebar Header & New Folder Button */}
       <div className="p-4 border-b border-border-light flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -148,13 +161,18 @@ export const Sidebar: React.FC = () => {
             Navigation
           </span>
         </div>
-        <button
-          onClick={() => dispatch(openNewFolderModal())}
-          title="Create New Folder"
-          className="p-1.5 rounded-lg text-charcoal/60 hover:text-indigo-brand hover:bg-cream-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => dispatch(openNewFolderModal())}
+            title="Create New Folder"
+            className="p-1.5 rounded-lg text-charcoal/60 hover:text-indigo-brand hover:bg-cream-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button type="button" onClick={onClose} aria-label="Close navigation sidebar" className="md:hidden p-1.5 rounded-lg text-charcoal/60 hover:bg-cream-200">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Folder Tree */}
@@ -164,7 +182,7 @@ export const Sidebar: React.FC = () => {
           name="Library Root"
           depth={0}
           currentFolderId={currentFolderId}
-          onSelect={handleSelectFolder}
+          onSelect={(id) => { handleSelectFolder(id); onClose?.(); }}
         />
 
         {rootFolders.map((folder) => (
@@ -174,7 +192,7 @@ export const Sidebar: React.FC = () => {
             name={folder.name}
             depth={0}
             currentFolderId={currentFolderId}
-            onSelect={handleSelectFolder}
+            onSelect={(id) => { handleSelectFolder(id); onClose?.(); }}
           />
         ))}
       </div>
@@ -188,6 +206,7 @@ export const Sidebar: React.FC = () => {
           PDF Library Active
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };

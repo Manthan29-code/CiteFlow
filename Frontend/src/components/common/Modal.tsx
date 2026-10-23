@@ -56,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -76,13 +76,13 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             className={cn(
-              'relative w-full max-h-[82vh] flex flex-col rounded-2xl bg-cream border border-border-light shadow-2xl overflow-hidden text-charcoal z-10 my-auto',
+              'relative w-full max-h-[90dvh] sm:max-h-[82vh] flex flex-col rounded-2xl bg-cream border border-border-light shadow-2xl overflow-hidden text-charcoal z-10 my-auto',
               maxWidthClasses[maxWidth],
               className
             )}
           >
             {/* Header */}
-            <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border-light shrink-0 bg-cream">
+            <div className="flex items-start justify-between px-4 py-4 sm:px-6 sm:pt-5 sm:pb-4 border-b border-border-light shrink-0 bg-cream">
               <div>
                 <h3 className="font-serif text-xl font-bold tracking-tight text-charcoal-900">
                   {title}
@@ -104,7 +104,7 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-none">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 scrollbar-none">
               {children}
             </div>
           </motion.div>
