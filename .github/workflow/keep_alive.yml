@@ -1,0 +1,14 @@
+name: Ping Render Backend
+
+on:
+  schedule:
+    # Runs every 10 minutes to stay safely under Render's 15-minute sleep threshold
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Ping Request
+        run: curl -sSf https://citeflow-vbj7.onrender.com/health || true
