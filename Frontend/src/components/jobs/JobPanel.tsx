@@ -246,7 +246,13 @@ export const JobPanel: React.FC = () => {
                   <Button
                     variant="primary"
                     className="w-full gap-2 shadow-sm"
-                    onClick={() => dispatch(openTexPreviewModal(job.id))}
+                    onClick={() => {
+                      // On phones, close the pipeline drawer so the preview modal is immediately visible.
+                      if (window.matchMedia('(max-width: 767px)').matches) {
+                        dispatch(closeJobDrawer());
+                      }
+                      dispatch(openTexPreviewModal(job.id));
+                    }}
                   >
                     <Download className="w-4 h-4" />
                     <span>Preview & Download .tex</span>
@@ -319,6 +325,10 @@ export const JobPanel: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              // On phones, close the pipeline drawer before opening the preview.
+                              if (window.matchMedia('(max-width: 767px)').matches) {
+                                dispatch(closeJobDrawer());
+                              }
                               dispatch(openTexPreviewModal(h.id));
                             }}
                             className="text-xs text-indigo-brand hover:underline font-medium font-mono"

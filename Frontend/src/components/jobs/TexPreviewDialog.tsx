@@ -102,7 +102,7 @@ export const TexPreviewDialog: React.FC = () => {
       description="Your verified bibliographic citation is ready for compile."
       maxWidth="xl"
     >
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {isLoading ? (
           <div className="py-16 flex flex-col items-center justify-center">
             <Spinner size="md" label="Loading .tex output" />
@@ -130,7 +130,7 @@ export const TexPreviewDialog: React.FC = () => {
             </div>
 
             {/* Read-only Monospace Preview Area */}
-            <div className="relative rounded-xl border border-charcoal-800 bg-charcoal-900 text-cream p-4 font-mono text-xs overflow-x-auto max-h-80 select-text leading-relaxed">
+            <div className="relative rounded-xl border border-charcoal-800 bg-charcoal-900 text-cream p-3 sm:p-4 font-mono text-xs overflow-auto max-h-[24dvh] sm:max-h-80 select-text leading-relaxed">
               <pre className="m-0 font-mono whitespace-pre-wrap">{texContent}</pre>
             </div>
 
