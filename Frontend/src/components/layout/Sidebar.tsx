@@ -151,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
       />
       <aside
         aria-label="Folder Navigation Sidebar"
-        className={`w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-[calc(100dvh-5rem)] md:h-[calc(100vh-5rem)] md:sticky md:top-20 overflow-y-auto z-50 transition-transform duration-200 fixed md:relative top-20 md:top-20 bottom-0 md:bottom-auto left-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-dvh md:h-[calc(100vh-5rem)] md:sticky md:top-20 overflow-y-auto z-50 transition-transform duration-200 fixed md:relative top-0 md:top-20 bottom-0 md:bottom-auto left-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
       {/* Sidebar Header & New Folder Button */}
       <div className="p-4 border-b border-border-light flex items-center justify-between">
