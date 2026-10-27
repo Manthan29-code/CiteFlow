@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     CROSSREF_MAX_CONCURRENCY: int = Field(default=3)
     OPENALEX_MAX_CONCURRENCY: int = Field(default=3)
 
+    # Custom Citation Styles (Google Gemini)
+    GEMINI_API_KEY: str = Field(default="")
+    GEMINI_MODEL: str = Field(default="gemini-2.5-flash")
+
     # LangGraph Checkpointer (Part B)
     CHECKPOINTER: str = Field(default="memory", description="postgres | memory | sqlite")
     CHECKPOINT_DATABASE_URL: Optional[str] = Field(default=None)

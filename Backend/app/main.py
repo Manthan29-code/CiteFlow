@@ -32,6 +32,7 @@ from .files.router import router as files_router
 from .folders.router import router as folders_router
 from .jobs.checkpointer import setup_checkpointer, close_checkpointer
 from .jobs.router import router as jobs_router
+from .citation_styles.router import router as citation_styles_router
 from .jobs.runner import recover_jobs_on_startup, run_periodic_maintenance
 from .storage.cleaner import StorageCleanerWorker
 
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
     app.include_router(folders_router, prefix="/api/v1")
     app.include_router(files_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
+    app.include_router(citation_styles_router, prefix="/api/v1")
 
     return app
 

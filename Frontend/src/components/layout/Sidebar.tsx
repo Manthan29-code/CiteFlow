@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Folder as FolderIcon,
   FolderOpen,
@@ -8,6 +8,7 @@ import {
   Plus,
   Home,
   Layers,
+  BookOpenText,
   X,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -125,6 +126,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
   const currentFolderId = useAppSelector((state) => state.explorer.currentFolderId);
   const [rootFolders, setRootFolders] = useState<Folder[]>([]);
 
+  const location = useLocation();
+
   useEffect(() => {
     getRootFolder()
       .then((res) => {
@@ -151,10 +154,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
       />
       <aside
         aria-label="Folder Navigation Sidebar"
-        className={`w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-dvh md:h-[calc(100vh-5rem)] md:sticky md:top-20 overflow-y-auto z-50 transition-transform duration-200 fixed md:relative top-0 md:top-20 bottom-0 md:bottom-auto left-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`w-64 border-r border-border-light bg-cream flex flex-col shrink-0 h-dvh md:h-[calc(100vh-5rem)] md:sticky md:top-20 overflow-hidden z-50 transition-transform duration-200 fixed md:relative top-0 md:top-20 bottom-0 md:bottom-auto left-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
       {/* Sidebar Header & New Folder Button */}
-      <div className="p-4 border-b border-border-light flex items-center justify-between">
+      <div className="p-4 border-b border-border-light flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-indigo-brand" />
           <span className="font-mono text-xs uppercase tracking-[0.2em] font-semibold text-charcoal-900">
@@ -197,8 +200,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
         ))}
       </div>
 
+      {/* Custom Citation Styles Navigation (Pinned above Cloud Storage) */}
+      <div className="p-3 border-t border-border-light bg-cream shrink-0">
+        <button
+          type="button"
+          onClick={() => { navigate('/citation-styles'); onClose?.(); }}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand",
+            location.pathname === '/citation-styles'
+              ? "bg-indigo-brand/10 text-indigo-brand font-semibold shadow-xs border border-indigo-brand/20"
+              : "text-charcoal-800 hover:bg-cream-200 hover:text-indigo-brand"
+          )}
+        >
+          <BookOpenText className="h-4 w-4 text-indigo-brand shrink-0" />
+          <span className="truncate">Custom Citation Styles</span>
+        </button>
+      </div>
+
       {/* Storage info footer */}
-      <div className="p-4 border-t border-border-light bg-cream-100/50">
+      <div className="p-4 border-t border-border-light bg-cream-100/50 shrink-0">
         <div className="text-[11px] font-mono text-charcoal/50 uppercase tracking-widest mb-1">
           Cloud Storage
         </div>
