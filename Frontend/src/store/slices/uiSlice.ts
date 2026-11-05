@@ -14,12 +14,14 @@ export interface DeleteTarget {
 
 export interface UIState {
   isNewFolderModalOpen: boolean;
+  isStyleManagerModalOpen: boolean;
   deleteTarget: DeleteTarget | null;
   toasts: ToastItem[];
 }
 
 const initialState: UIState = {
   isNewFolderModalOpen: false,
+  isStyleManagerModalOpen: false,
   deleteTarget: null,
   toasts: [],
 };
@@ -33,6 +35,12 @@ export const uiSlice = createSlice({
     },
     closeNewFolderModal(state) {
       state.isNewFolderModalOpen = false;
+    },
+    openStyleManagerModal(state) {
+      state.isStyleManagerModalOpen = true;
+    },
+    closeStyleManagerModal(state) {
+      state.isStyleManagerModalOpen = false;
     },
     openDeleteDialog(state, action: PayloadAction<DeleteTarget>) {
       state.deleteTarget = action.payload;
@@ -53,6 +61,8 @@ export const uiSlice = createSlice({
 export const {
   openNewFolderModal,
   closeNewFolderModal,
+  openStyleManagerModal,
+  closeStyleManagerModal,
   openDeleteDialog,
   closeDeleteDialog,
   addToast,

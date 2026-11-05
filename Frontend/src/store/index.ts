@@ -4,6 +4,7 @@ import explorerReducer from './slices/explorerSlice';
 import uploadReducer from './slices/uploadSlice';
 import uiReducer from './slices/uiSlice';
 import jobsReducer from './slices/jobsSlice';
+import stylesReducer from './slices/stylesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     upload: uploadReducer,
     ui: uiReducer,
     jobs: jobsReducer,
+    styles: stylesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

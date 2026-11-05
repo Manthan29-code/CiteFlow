@@ -23,6 +23,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const isStarting = useAppSelector((state) => state.jobs.isStartingJobByFileId[fileId] || false);
+  const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
 
   const [texMode, setTexMode] = useState<TexMode>('standalone');
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
@@ -58,7 +59,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
     dispatch(setStartingJob({ fileId, isStarting: true }));
 
     try {
-      const job = await createJob(fileId, texMode);
+      const job = await createJob(fileId, texMode, selectedStyleId);
       dispatch(setJob(job));
       dispatch(openJobDrawer(job.id));
       dispatch(
@@ -98,14 +99,21 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
         type="button"
         onClick={handleStartJob}
         disabled={disabled || isStarting}
-        aria-label={`Generate .tex citation for ${fileName}`}
-        className="inline-flex items-center gap-1.5 px-3 h-full rounded-l-xl bg-indigo-brand text-white text-xs font-sans font-medium hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+        title="Generate .tex citation"
+        aria-label="Generate citation"
+        className={cn(
+          'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-semibold text-white rounded-l-xl transition-all',
+          'hover:bg-indigo-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand focus-visible:ring-offset-1'
+        )}
       >
-        <Sparkles className="w-3.5 h-3.5 text-indigo-200 shrink-0" />
-        <span className="whitespace-nowrap">{isStarting ? 'Starting...' : 'Generate .tex'}</span>
+        <Sparkles className={cn('w-3.5 h-3.5', isStarting && 'animate-spin')} />
+        <span className="hidden xs:inline">
+          {isStarting ? 'Starting...' : 'Generate .tex'}
+        </span>
       </button>
 
-      {/* Mode Selector Dropdown Arrow */}
+      {/* Split Dropdown Trigger */}
       <button
         type="button"
         onClick={(e) => {
@@ -113,22 +121,26 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
           setDropdownOpen(!dropdownOpen);
         }}
         disabled={disabled || isStarting}
-        aria-label="Choose TeX output mode"
-        className="inline-flex items-center justify-center px-2.5 h-full rounded-r-xl border-l border-indigo-700/60 bg-indigo-brand text-indigo-200 hover:text-white hover:bg-indigo-hover active:bg-indigo-900 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+        aria-label="Select LaTeX export mode"
+        className={cn(
+          'inline-flex items-center px-1.5 text-white/80 border-l border-white/20 rounded-r-xl transition-all',
+          'hover:bg-indigo-hover hover:text-white disabled:opacity-50',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand focus-visible:ring-offset-1'
+        )}
       >
         <ChevronDown className="w-3.5 h-3.5" />
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Floating Options Menu */}
       {dropdownOpen && (
         <div
           className={cn(
-            'absolute right-0 z-50 w-52 rounded-xl bg-white border border-border-light shadow-xl p-1.5 text-xs font-sans text-charcoal-900 animate-in fade-in zoom-in-95 duration-100',
-            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            'absolute right-0 z-50 w-56 rounded-xl bg-white border border-border-light shadow-xl py-1 text-xs font-sans text-charcoal-800 animate-in fade-in zoom-in-95 duration-100',
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
-          <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-charcoal/50">
-            Output Format
+          <div className="px-3 py-1.5 text-[10px] font-mono text-charcoal/40 uppercase tracking-widest border-b border-border-light/60">
+            Export Mode
           </div>
 
           <button
@@ -138,13 +150,24 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
               setTexMode('standalone');
               setDropdownOpen(false);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-cream-200 transition-colors text-left"
+            className={cn(
+              'w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-cream-200 transition-colors',
+              texMode === 'standalone' && 'bg-indigo-50/50 text-indigo-brand'
+            )}
           >
-            <div>
-              <div className="font-medium text-charcoal-900">Full Document</div>
-              <div className="text-[10px] text-charcoal/50">Standalone LaTeX file</div>
+            <div className="mt-0.5">
+              {texMode === 'standalone' ? (
+                <Check className="w-3.5 h-3.5 text-indigo-brand" />
+              ) : (
+                <div className="w-3.5 h-3.5" />
+              )}
             </div>
-            {texMode === 'standalone' && <Check className="w-3.5 h-3.5 text-indigo-brand" />}
+            <div>
+              <div className="font-semibold text-charcoal-900">Standalone .tex</div>
+              <div className="text-[11px] text-charcoal/60 leading-tight">
+                Complete document with preamble &amp; hyperref setup.
+              </div>
+            </div>
           </button>
 
           <button
@@ -154,13 +177,24 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
               setTexMode('fragment');
               setDropdownOpen(false);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-cream-200 transition-colors text-left"
+            className={cn(
+              'w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-cream-200 transition-colors',
+              texMode === 'fragment' && 'bg-indigo-50/50 text-indigo-brand'
+            )}
           >
-            <div>
-              <div className="font-medium text-charcoal-900">Bibliography Block</div>
-              <div className="text-[10px] text-charcoal/50">\begin&#123;thebibliography&#125;</div>
+            <div className="mt-0.5">
+              {texMode === 'fragment' ? (
+                <Check className="w-3.5 h-3.5 text-indigo-brand" />
+              ) : (
+                <div className="w-3.5 h-3.5" />
+              )}
             </div>
-            {texMode === 'fragment' && <Check className="w-3.5 h-3.5 text-indigo-brand" />}
+            <div>
+              <div className="font-semibold text-charcoal-900">Bibliography Fragment</div>
+              <div className="text-[11px] text-charcoal/60 leading-tight">
+                Snippet for pasting into an existing document.
+              </div>
+            </div>
           </button>
         </div>
       )}

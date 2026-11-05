@@ -9,9 +9,10 @@ import {
   Home,
   Layers,
   X,
+  Palette,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { openNewFolderModal } from '@/store/slices/uiSlice';
+import { openNewFolderModal, openStyleManagerModal } from '@/store/slices/uiSlice';
 import { getFolderDetails, getRootFolder } from '@/api/folders';
 import { Folder } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -114,28 +115,22 @@ const TreeNode: React.FC<TreeNodeProps> = ({ id, name, depth, currentFolderId, o
   );
 };
 
-interface SidebarProps {
+export interface SidebarProps {
   mobileOpen?: boolean;
   onClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const currentFolderId = useAppSelector((state) => state.explorer.currentFolderId);
-  const [rootFolders, setRootFolders] = useState<Folder[]>([]);
+  const dispatch = useAppDispatch();
 
-  useEffect(() => {
-    getRootFolder()
-      .then((res) => {
-        setRootFolders(res.folders || []);
-      })
-      .catch(() => {});
-  }, [currentFolderId]);
+  const folderData = useAppSelector((state) => state.explorer.folderData);
+  const currentFolderId = folderData?.folder?.id || 'root';
+  const rootFolders = useAppSelector((state) => state.explorer.rootFolders);
 
   const handleSelectFolder = (id: string) => {
     if (id === 'root') {
-      navigate('/');
+      navigate('/folders/root');
     } else {
       navigate(`/folders/${id}`);
     }
@@ -143,10 +138,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close navigation sidebar"
+      {/* Mobile Drawer Overlay */}
+      <div
         onClick={onClose}
+        aria-hidden="true"
         className={`fixed inset-0 z-40 bg-charcoal-900/40 backdrop-blur-sm md:hidden ${mobileOpen ? 'block' : 'hidden'}`}
       />
       <aside
@@ -199,8 +194,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
 
       {/* Storage info footer */}
       <div className="p-4 border-t border-border-light bg-cream-100/50">
-        <div className="text-[11px] font-mono text-charcoal/50 uppercase tracking-widest mb-1">
-          Cloud Storage
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[11px] font-mono text-charcoal/50 uppercase tracking-widest">
+            Cloud Storage
+          </div>
+          <button
+            type="button"
+            onClick={() => dispatch(openStyleManagerModal())}
+            title="Manage Citation Styles"
+            aria-label="Manage Citation Styles"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-medium text-indigo-brand bg-white border border-border-light hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            <Palette className="w-3 h-3" />
+            <span>Styles</span>
+          </button>
         </div>
         <div className="text-xs font-sans text-charcoal-700">
           PDF Library Active

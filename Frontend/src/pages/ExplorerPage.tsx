@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFolder } from '@/store/slices/explorerSlice';
+import { fetchStyles } from '@/store/slices/stylesSlice';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
@@ -12,6 +13,7 @@ import { DeleteConfirmDialog } from '@/components/explorer/DeleteConfirmDialog';
 import { TitleConfirmDialog } from '@/components/jobs/TitleConfirmDialog';
 import { ReviewFormDialog } from '@/components/jobs/ReviewFormDialog';
 import { TexPreviewDialog } from '@/components/jobs/TexPreviewDialog';
+import { StyleManagerDialog } from '@/components/styles/StyleManagerDialog';
 import { JobPanel } from '@/components/jobs/JobPanel';
 import { ActiveJobDock } from '@/components/jobs/ActiveJobDock';
 import { UploadDrawer } from '@/components/upload/UploadDrawer';
@@ -38,9 +40,10 @@ export const ExplorerPage: React.FC = () => {
   const breadcrumbs = useAppSelector((state) => state.explorer.folderData?.breadcrumbs) || EMPTY_BREADCRUMBS;
   const currentFolder = useAppSelector((state) => state.explorer.folderData?.folder);
 
-  // Synchronize route param with folder query
+  // Synchronize route param with folder query & load styles
   useEffect(() => {
     dispatch(fetchFolder(activeId));
+    dispatch(fetchStyles());
   }, [activeId, dispatch]);
 
   const handleUploadClick = () => {
@@ -104,18 +107,19 @@ export const ExplorerPage: React.FC = () => {
       dispatch(addUploads(newItems));
     }
 
+    // Reset input so same file can be picked again if desired
     e.target.value = '';
   };
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col font-sans">
-      <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
+    <div className="min-h-screen bg-cream flex flex-col font-sans text-charcoal">
+      {/* Top Navbar */}
+      <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
 
-      <div className="flex flex-1 min-w-0">
-        {/* Sidebar Navigation */}
-        <div id="folder-navigation">
-          <Sidebar mobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-        </div>
+      {/* App Body with Sidebar + Main Content */}
+      <div className="flex-1 flex max-w-[1920px] w-full mx-auto">
+        {/* Navigation Sidebar */}
+        <Sidebar mobileOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
         {/* Main Explorer Workspace */}
         <main className="flex-1 min-w-0 w-full px-3 pt-3 pb-[10px] sm:px-8 sm:pt-6 sm:pb-[10px] flex flex-col">
@@ -153,6 +157,7 @@ export const ExplorerPage: React.FC = () => {
       <TitleConfirmDialog />
       <ReviewFormDialog />
       <TexPreviewDialog />
+      <StyleManagerDialog />
 
       {/* Floating Drawers & Docks */}
       <UploadDrawer />

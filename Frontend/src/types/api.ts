@@ -149,6 +149,7 @@ export interface JobResponse {
   file_id: string;
   status: JobStatus;
   tex_mode: TexMode;
+  style_id?: string | null;
   pending_interrupt?: JobInterrupt | null;
   result_metadata?: Record<string, unknown> | null;
   reasons?: string[] | null;
@@ -170,4 +171,35 @@ export interface ResumeRequest {
   index?: number;
   title?: string;
   edits?: Record<string, unknown>;
+}
+
+// ==========================================
+// Part C: Citation Styles Schemas
+// ==========================================
+
+export interface CitationStyle {
+  id: string;
+  owner_id?: string | null;
+  name: string;
+  slug: string;
+  template: string;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCitationStyleRequest {
+  name: string;
+  template: string;
+}
+
+export interface UpdateCitationStyleRequest {
+  name?: string;
+  template?: string;
+}
+
+export interface ValidateTemplateResponse {
+  valid: boolean;
+  errors: string[];
+  preview?: string | null;
 }

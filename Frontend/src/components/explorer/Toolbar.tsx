@@ -6,6 +6,7 @@ import { setSearchQuery, setViewMode } from '@/store/slices/explorerSlice';
 import { openJobDrawer, setJobs } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
+import { StyleSelectorDropdown } from '@/components/styles/StyleSelectorDropdown';
 import { UploadQueueItem } from '@/types/api';
 import { env } from '@/lib/env';
 import { formatBytes } from '@/lib/format';
@@ -18,6 +19,7 @@ export const Toolbar: React.FC = () => {
 
   const { searchQuery, viewMode, folderData } = useAppSelector((state) => state.explorer);
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
+  const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
   const currentFolder = folderData?.folder;
 
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -109,7 +111,7 @@ export const Toolbar: React.FC = () => {
     if (!currentFolder?.id || isBatchGenerating) return;
     setIsBatchGenerating(true);
     try {
-      const jobs = await createFolderJobs(currentFolder.id);
+      const jobs = await createFolderJobs(currentFolder.id, 'standalone', selectedStyleId);
       dispatch(setJobs(jobs));
       const newlyStarted = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length;
       dispatch(
@@ -121,7 +123,6 @@ export const Toolbar: React.FC = () => {
               : `All citations in "${currentFolder.name}" are already generated or processing.`,
         })
       );
-      // NOTE: We deliberately do NOT call openJobDrawer() so the side drawer remains closed during batch!
     } catch (err: unknown) {
       dispatch(
         addToast({
@@ -190,6 +191,9 @@ export const Toolbar: React.FC = () => {
             <span className="text-xs">Pipeline</span>
           </Button>
         )}
+
+        {/* Style Selector Dropdown placed immediately to the right of Pipeline */}
+        <StyleSelectorDropdown />
 
         <input
           ref={fileInputRef}

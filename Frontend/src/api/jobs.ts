@@ -2,17 +2,43 @@ import { env } from '@/lib/env';
 import { apiClient } from './client';
 import { JobResponse, JobListResponse, ResumeRequest, TexMode } from '@/types/api';
 
-export async function createJob(fileId: string, texMode: TexMode = 'standalone'): Promise<JobResponse> {
+export async function createJob(
+  fileId: string,
+  texMode: TexMode = 'standalone',
+  styleId?: string | null
+): Promise<JobResponse> {
   return apiClient<JobResponse>(`/files/${fileId}/jobs`, {
     method: 'POST',
-    body: JSON.stringify({ tex_mode: texMode }),
+    body: JSON.stringify({
+      tex_mode: texMode,
+      style_id: styleId || undefined,
+    }),
   });
 }
 
-export async function createFolderJobs(folderId: string, texMode: TexMode = 'standalone'): Promise<JobResponse[]> {
+export async function createFolderJobs(
+  folderId: string,
+  texMode: TexMode = 'standalone',
+  styleId?: string | null
+): Promise<JobResponse[]> {
   return apiClient<JobResponse[]>(`/folders/${folderId}/jobs`, {
     method: 'POST',
-    body: JSON.stringify({ tex_mode: texMode }),
+    body: JSON.stringify({
+      tex_mode: texMode,
+      style_id: styleId || undefined,
+    }),
+  });
+}
+
+export async function transformJobStyle(
+  jobId: string,
+  styleId?: string | null
+): Promise<JobResponse> {
+  return apiClient<JobResponse>(`/jobs/${jobId}/transform`, {
+    method: 'POST',
+    body: JSON.stringify({
+      style_id: styleId || null,
+    }),
   });
 }
 
