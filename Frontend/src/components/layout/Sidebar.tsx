@@ -124,9 +124,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const folderData = useAppSelector((state) => state.explorer.folderData);
-  const currentFolderId = folderData?.folder?.id || 'root';
-  const rootFolders = useAppSelector((state) => state.explorer.rootFolders);
+  const currentFolderId = useAppSelector((state) => state.explorer.currentFolderId);
+  const [rootFolders, setRootFolders] = useState<Folder[]>([]);
+
+  useEffect(() => {
+    getRootFolder()
+      .then((res) => {
+        setRootFolders(res.folders || []);
+      })
+      .catch(() => {});
+  }, [currentFolderId]);
 
   const handleSelectFolder = (id: string) => {
     if (id === 'root') {
@@ -180,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose })
           onSelect={(id) => { handleSelectFolder(id); onClose?.(); }}
         />
 
-        {rootFolders.map((folder) => (
+        {(rootFolders || []).map((folder) => (
           <TreeNode
             key={folder.id}
             id={folder.id}

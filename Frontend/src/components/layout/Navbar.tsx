@@ -8,9 +8,11 @@ import { Button } from '@/components/common/Button';
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
+  onMenuClick?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onMenuClick }) => {
+  const handleToggle = onToggleSidebar || onMenuClick;
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -44,7 +46,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     <header className="sticky top-0 z-30 w-full h-20 bg-cream/90 backdrop-blur-md border-b border-border-light px-4 sm:px-8 flex items-center justify-between">
       {/* Brand Logo */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <button type="button" onClick={onToggleSidebar} aria-label="Toggle navigation sidebar" aria-controls="folder-navigation" className="md:hidden inline-flex items-center justify-center p-2 -ml-2 rounded-lg border border-border-light bg-white text-charcoal-800 hover:bg-cream-100 shrink-0">
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-label="Toggle navigation sidebar"
+          aria-controls="folder-navigation"
+          className="md:hidden inline-flex items-center justify-center p-2 -ml-2 rounded-lg border border-border-light bg-white text-charcoal-800 hover:bg-cream-100 shrink-0 cursor-pointer"
+        >
           <Menu className="w-5 h-5" />
         </button>
         <Link to="/" className="flex items-center gap-2.5 group">

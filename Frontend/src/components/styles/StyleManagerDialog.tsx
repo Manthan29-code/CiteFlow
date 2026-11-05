@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Loader2,
+  BookOpen,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { closeStyleManagerModal, addToast } from '@/store/slices/uiSlice';
@@ -28,6 +29,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { CitationStyle } from '@/types/api';
 import { cn } from '@/lib/utils';
+import { VariablesGuide } from '@/components/styles/VariablesGuide';
 
 export const StyleManagerDialog: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -36,7 +38,8 @@ export const StyleManagerDialog: React.FC = () => {
     (state) => state.styles
   );
 
-  const [mode, setMode] = useState<'list' | 'editor'>('list');
+  const [mode, setMode] = useState<'list' | 'editor' | 'guide'>('list');
+  const [previousMode, setPreviousMode] = useState<'list' | 'editor'>('list');
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
   const [template, setTemplate] = useState<string>('');
@@ -64,6 +67,13 @@ export const StyleManagerDialog: React.FC = () => {
       setDeleteConfirmId(null);
     }
   }, [isOpen, dispatch]);
+
+  // Keep textarea in view when autocomplete opens
+  useEffect(() => {
+    if (showSuggestions && textareaRef.current) {
+      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [showSuggestions]);
 
   // Handle autocomplete filtering
   const filteredFields = useMemo(() => {
@@ -268,31 +278,68 @@ export const StyleManagerDialog: React.FC = () => {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={mode === 'editor' ? (editingStyleId ? 'Edit Citation Style' : 'Create New Citation Style') : 'Citation Styles Manager'}
+      title={
+        mode === 'guide'
+          ? 'Allowed Variables & Fallback Rules'
+          : mode === 'editor'
+          ? editingStyleId
+            ? 'Edit Citation Style'
+            : 'Create New Citation Style'
+          : 'Citation Styles Manager'
+      }
       description={
-        mode === 'editor'
+        mode === 'guide'
+          ? 'Complete reference for author representation variants, bibliographic variables, and fallback rules.'
+          : mode === 'editor'
           ? 'Define your LaTeX \\bibitem template using uppercase <TAG> placeholders.'
           : 'Customize, create, and manage reference bibliography formats.'
       }
-      maxWidth="3xl"
+      maxWidth={mode === 'guide' ? '4xl' : '3xl'}
     >
       <div className="space-y-4">
-        {mode === 'list' ? (
+        {mode === 'guide' ? (
+          <VariablesGuide
+            onBack={() => setMode(previousMode)}
+            backLabel={previousMode === 'editor' ? 'Back to Style Editor' : 'Back to Styles List'}
+            onSelectTag={(tag) => {
+              if (previousMode === 'editor') {
+                insertTag(tag.replace(/[<>]/g, ''));
+              }
+            }}
+          />
+        ) : mode === 'list' ? (
           <>
             {/* Action Bar */}
             <div className="flex items-center justify-between pb-2 border-b border-border-light">
               <span className="text-xs font-mono text-charcoal/60 uppercase tracking-wider">
                 {styles.length} Available Styles
               </span>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => handleOpenCreate()}
-                className="gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New Style</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPreviousMode('list');
+                    setMode('guide');
+                  }}
+                  className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100/70"
+                  title="View Allowed Variables & Fallback Rules"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Variables Guide</span>
+                  <span className="sm:hidden">Guide</span>
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleOpenCreate()}
+                  className="gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Style</span>
+                </Button>
+              </div>
             </div>
 
             {/* Styles Cards List */}
@@ -428,9 +475,23 @@ export const StyleManagerDialog: React.FC = () => {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back to Styles List</span>
               </button>
-              <span className="text-[11px] font-mono text-charcoal/40">
-                Type <kbd className="px-1 py-0.5 rounded bg-cream-200 border border-border-light text-charcoal-900">&lt;</kbd> inside template for autocomplete
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviousMode('editor');
+                    setMode('guide');
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono text-indigo-brand bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
+                  title="View Allowed Variables & Fallback Rules"
+                >
+                  <BookOpen className="w-3 h-3" />
+                  <span>Variables Guide</span>
+                </button>
+                <span className="text-[11px] font-mono text-charcoal/40 hidden sm:inline">
+                  Type <kbd className="px-1 py-0.5 rounded bg-cream-200 border border-border-light text-charcoal-900">&lt;</kbd> for autocomplete
+                </span>
+              </div>
             </div>
 
             {/* Style Name Input */}
@@ -446,25 +507,6 @@ export const StyleManagerDialog: React.FC = () => {
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 text-xs font-sans bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-indigo-brand"
               />
-            </div>
-
-            {/* Quick Tag Pills Helper */}
-            <div>
-              <div className="text-[11px] font-mono text-charcoal/50 uppercase tracking-wider mb-1.5">
-                Quick Insert Variables:
-              </div>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1.5 bg-cream-100 rounded-xl border border-border-light">
-                {allowedFields.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => insertTag(f)}
-                    className="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-white hover:bg-indigo-50 hover:text-indigo-brand hover:border-indigo-200 text-charcoal-800 border border-border-light transition-colors shadow-2xs cursor-pointer"
-                  >
-                    &lt;{f}&gt;
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Template Textarea with Autocomplete */}
@@ -483,17 +525,18 @@ export const StyleManagerDialog: React.FC = () => {
                 className="w-full px-3 py-2 text-xs font-mono bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-indigo-brand leading-relaxed"
               />
 
-              {/* Autocomplete Dropdown Popup */}
+              {/* Autocomplete Dropdown Popup - Opens below textarea to prevent top clipping */}
               <AnimatePresence>
                 {showSuggestions && (
                   <motion.div
-                    initial={{ opacity: 0, y: 5 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 5 }}
-                    className="absolute z-50 left-2 right-2 bottom-full mb-1 max-h-48 overflow-y-auto rounded-xl bg-charcoal-900 text-cream border border-charcoal-700 shadow-xl py-1"
+                    exit={{ opacity: 0, y: -6 }}
+                    className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-48 sm:max-h-56 overflow-y-auto rounded-xl bg-charcoal-900 text-cream border border-charcoal-700 shadow-2xl py-1"
                   >
-                    <div className="px-3 py-1 text-[10px] font-mono text-cream/40 uppercase tracking-widest border-b border-charcoal-800">
-                      Suggested Fields ({filteredFields.length})
+                    <div className="px-3 py-1.5 text-[10px] font-mono text-cream/40 uppercase tracking-widest border-b border-charcoal-800 flex items-center justify-between">
+                      <span>Suggested Fields ({filteredFields.length})</span>
+                      <span className="text-[9px] text-cream/30">Tab / Enter</span>
                     </div>
                     {filteredFields.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-cream/50 font-mono">
@@ -509,13 +552,13 @@ export const StyleManagerDialog: React.FC = () => {
                             insertTag(field);
                           }}
                           className={cn(
-                            'w-full text-left px-3 py-1.5 text-xs font-mono transition-colors flex items-center justify-between',
+                            'w-full text-left px-3 py-1.5 text-xs font-mono transition-colors flex items-center justify-between cursor-pointer',
                             idx === activeSuggestionIndex
-                              ? 'bg-indigo-600 text-white'
+                              ? 'bg-indigo-600 text-white font-medium'
                               : 'text-cream/80 hover:bg-charcoal-800 hover:text-white'
                           )}
                         >
-                          <span>&lt;{field}&gt;</span>
+                          <span className="font-semibold">&lt;{field}&gt;</span>
                           <span className="text-[10px] opacity-60">Tab / Enter</span>
                         </button>
                       ))

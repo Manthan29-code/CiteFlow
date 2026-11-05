@@ -114,7 +114,10 @@ export const ExplorerPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-cream flex flex-col font-sans text-charcoal">
       {/* Top Navbar */}
-      <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
+      <Navbar
+        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        onMenuClick={() => setIsSidebarOpen((prev) => !prev)}
+      />
 
       {/* App Body with Sidebar + Main Content */}
       <div className="flex-1 flex max-w-[1920px] w-full mx-auto">
