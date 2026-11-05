@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import check_csrf, get_current_user, get_db, get_storage
 from app.db.models.user import User
 from app.jobs.events import job_event_generator
-from app.jobs.schemas import JobCreate, JobListResponse, JobResponse, ResumeRequest
+from app.jobs.schemas import JobCreate, JobListResponse, JobResponse, JobTransformRequest, ResumeRequest
 from app.jobs.service import JobService
 from app.storage.base import StorageBackend
 
@@ -39,6 +39,7 @@ async def create_job(
         owner_id=current_user.id,
         file_id=file_id,
         tex_mode=body.tex_mode,
+        style_id=body.style_id,
     )
     response.status_code = status.HTTP_202_ACCEPTED if created else status.HTTP_200_OK
     return JobResponse.model_validate(job)
@@ -68,6 +69,7 @@ async def create_folder_jobs(
         owner_id=current_user.id,
         folder_id=folder_id,
         tex_mode=body.tex_mode,
+        style_id=body.style_id,
     )
     return [JobResponse.model_validate(j) for j in jobs]
 
@@ -99,7 +101,7 @@ async def list_jobs(
     limit: int = Query(200, ge=1, le=500),
     cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
 ) -> JobListResponse:
-    """Lists jobs owned by current user (newest first), optionally filtered by file."""
+    """Lists jobs with cursor pagination."""
     jobs, next_cursor = await JobService.list_jobs(
         db=db,
         owner_id=current_user.id,
@@ -133,6 +135,31 @@ async def resume_job(
         owner_id=current_user.id,
         job_id=id,
         resume_data=resume_data,
+    )
+    return JobResponse.model_validate(job)
+
+
+@router.post(
+    "/jobs/{id}/transform",
+    response_model=JobResponse,
+    dependencies=[Depends(check_csrf)],
+    operation_id="jobs_transform_style",
+)
+async def transform_job_style(
+    id: UUID,
+    body: JobTransformRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> JobResponse:
+    """
+    Transforms the citation style of an already-succeeded job.
+    Uses cached metadata to instantaneously re-render result_tex (<10ms).
+    """
+    job = await JobService.transform_job_style(
+        db=db,
+        owner_id=current_user.id,
+        job_id=id,
+        style_id=body.style_id,
     )
     return JobResponse.model_validate(job)
 

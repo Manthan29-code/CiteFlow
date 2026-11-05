@@ -33,15 +33,20 @@ def render_single_record(
     metadata: ArticleMetadata | Dict[str, Any],
     raw_bibitem: Optional[str] = None,
     standalone: bool = True,
+    template: Optional[str] = None,
 ) -> str:
     """
     Renders thebibliography LaTeX document (standalone or fragment) for a single record.
     Assigns the deterministic citation key (FirstAuthorYear).
+    If a template is provided, formats with format_bibitem_with_style.
     """
     meta_obj = metadata if isinstance(metadata, ArticleMetadata) else ArticleMetadata(**metadata)
     base_key = generate_base_citation_key(meta_obj)
 
-    if raw_bibitem:
+    if template:
+        from citegen.latex.style_engine import format_bibitem_with_style
+        final_bibitem = format_bibitem_with_style(meta_obj, template, citation_key=base_key)
+    elif raw_bibitem:
         final_bibitem = update_bibitem_key(raw_bibitem, base_key)
     else:
         # Fallback to standard formatting if raw_bibitem not provided

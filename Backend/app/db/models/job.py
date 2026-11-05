@@ -14,6 +14,9 @@ class Job(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     file_id: Mapped[UUID] = mapped_column(ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    style_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("citation_styles.id", ondelete="SET NULL"), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="queued")
     tex_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="standalone")
     pending_interrupt: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
@@ -32,10 +35,12 @@ class Job(Base):
     # Relationships
     owner = relationship("User")
     file = relationship("File")
+    style = relationship("CitationStyle")
 
     __table_args__ = (
         Index("ix_jobs_owner_created", "owner_id", created_at.desc()),
         Index("ix_jobs_file_id", "file_id"),
+        Index("ix_jobs_style_id", "style_id"),
         Index(
             "uq_jobs_file_active",
             "file_id",

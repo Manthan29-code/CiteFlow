@@ -34,6 +34,7 @@ class JobService:
         owner_id: UUID,
         file_id: UUID,
         tex_mode: str = "standalone",
+        style_id: Optional[UUID] = None,
     ) -> Tuple[Job, bool]:
         """
         Creates or returns an active citation generation job for a file.
@@ -83,6 +84,7 @@ class JobService:
             id=uuid4(),
             owner_id=owner_id,
             file_id=file_id,
+            style_id=style_id,
             status="queued",
             tex_mode=tex_mode,
         )
@@ -111,6 +113,7 @@ class JobService:
         owner_id: UUID,
         folder_id: UUID,
         tex_mode: str = "standalone",
+        style_id: Optional[UUID] = None,
         force: bool = False,
     ) -> List[Job]:
         """
@@ -153,6 +156,7 @@ class JobService:
                     owner_id=owner_id,
                     file_id=file_rec.id,
                     tex_mode=tex_mode,
+                    style_id=style_id,
                 )
                 cls._enrich_pending_interrupt(job)
                 jobs.append(job)
@@ -385,6 +389,69 @@ class JobService:
         await db.refresh(job)
 
         broadcast_status(job_id, {"status": "canceled"})
+        return job
+
+    @classmethod
+    async def transform_job_style(
+        cls,
+        db: AsyncSession,
+        owner_id: UUID,
+        job_id: UUID,
+        style_id: Optional[UUID] = None,
+    ) -> Job:
+        """
+        Transforms the citation style of an already-succeeded job.
+        Uses cached result_metadata and formats new result_tex instantaneously (<10ms).
+        """
+        job = await cls.get_job(db, owner_id, job_id)
+        if job.status != "succeeded" or not job.result_metadata:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": {
+                        "code": "cannot_transform_style",
+                        "message": "Only succeeded jobs with verified metadata can be transformed.",
+                        "details": {},
+                    }
+                },
+            )
+
+        template: Optional[str] = None
+        if style_id:
+            from app.db.models.citation_style import CitationStyle
+
+            stmt = select(CitationStyle).where(
+                CitationStyle.id == style_id,
+                or_(CitationStyle.is_builtin.is_(True), CitationStyle.owner_id == owner_id),
+            )
+            style_rec = (await db.execute(stmt)).scalar_one_or_none()
+            if not style_rec:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": {
+                            "code": "style_not_found",
+                            "message": f"Citation style '{style_id}' not found.",
+                            "details": {},
+                        }
+                    },
+                )
+            template = style_rec.template
+
+        from citegen.api import render_single_record
+
+        rendered_tex = render_single_record(
+            metadata=job.result_metadata,
+            template=template,
+            standalone=(job.tex_mode == "standalone"),
+        )
+
+        job.style_id = style_id
+        job.result_tex = rendered_tex
+        job.updated_at = utc_now()
+        await db.commit()
+        await db.refresh(job)
+        cls._enrich_pending_interrupt(job)
         return job
 
     @classmethod

@@ -52,7 +52,6 @@ def get_job_semaphore() -> asyncio.Semaphore:
     return _job_semaphore
 
 
-
 def register_listener(job_id: UUID) -> asyncio.Queue:
     """Registers an SSE listener queue for status events on a job."""
     q: asyncio.Queue = asyncio.Queue()
@@ -117,6 +116,7 @@ async def execute_job(
 
             file_id = job.file_id
             tex_mode = job.tex_mode
+            style_id = job.style_id
 
             # Fetch file record
             f_stmt = select(File).where(File.id == file_id)
@@ -200,9 +200,17 @@ async def execute_job(
                     broadcast_status(job_id, {"status": new_status, "pending_interrupt": job.pending_interrupt})
 
                 elif result.status == "accepted":
+                    # Check if custom style is requested
+                    style_template: Optional[str] = None
+                    if job.style_id:
+                        from app.db.models.citation_style import CitationStyle
+                        stmt_style = select(CitationStyle.template).where(CitationStyle.id == job.style_id)
+                        style_template = (await db.execute(stmt_style)).scalar_one_or_none()
+
                     rendered_tex = render_single_record(
                         metadata=result.draft_record,
-                        raw_bibitem=result.raw_bibitem,
+                        raw_bibitem=result.raw_bibitem if not style_template else None,
+                        template=style_template,
                         standalone=(tex_mode == "standalone"),
                     )
                     job.status = "succeeded"

@@ -6,6 +6,11 @@ from pydantic import BaseModel, Field, model_validator
 
 class JobCreate(BaseModel):
     tex_mode: Literal["standalone", "fragment"] = "standalone"
+    style_id: Optional[UUID] = None
+
+
+class JobTransformRequest(BaseModel):
+    style_id: Optional[UUID] = None
 
 
 class JobResponse(BaseModel):
@@ -14,6 +19,7 @@ class JobResponse(BaseModel):
     file_id: UUID
     status: str
     tex_mode: str
+    style_id: Optional[UUID] = None
     pending_interrupt: Optional[Dict[str, Any]] = None
     result_metadata: Optional[Dict[str, Any]] = None
     reasons: Optional[List[Any]] = None
@@ -108,4 +114,3 @@ class ResumeRequest(BaseModel):
             )
 
         return self
-

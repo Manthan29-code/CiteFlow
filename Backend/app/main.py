@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from .auth.router import router as auth_router
+from .citation_styles.router import router as citation_styles_router
 from .core.config import settings
 from .core.deps import get_storage
 from .core.errors import (
@@ -154,9 +155,9 @@ def create_app() -> FastAPI:
     app.include_router(folders_router, prefix="/api/v1")
     app.include_router(files_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
+    app.include_router(citation_styles_router, prefix="/api/v1")
 
     return app
 
 
 app = create_app()
-

@@ -1,4 +1,5 @@
 from citegen.latex.author_format import escape_latex, format_author_list
+from citegen.latex.style_engine import format_bibitem_with_style
 from citegen.metadata.models import ArticleMetadata
 
 
