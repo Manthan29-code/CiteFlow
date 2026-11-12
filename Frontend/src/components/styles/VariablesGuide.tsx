@@ -251,27 +251,27 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-sans">
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first .</div>
-            <div className="text-charcoal/80">Surname first, undotted compressed initials + sentence period (AMA / Vancouver: Ghosh S, Chattopadhyay PK.). Space before dot.</div>
+            <div className="text-charcoal/80">Surname first, undotted compressed initials + sentence period Space before dot.</div>
           </div>
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first.</div>
-            <div className="text-charcoal/80">Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.). Dot attached directly to first.</div>
+            <div className="text-charcoal/80">Surname first, dotted initials Dot(.) attached directly to first.</div>
           </div>
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first</div>
-            <div className="text-charcoal/80">Surname first, undotted compressed initials without period (Ghosh S, Chattopadhyay PK).</div>
+            <div className="text-charcoal/80">Surname first, undotted compressed initials without period </div>
           </div>
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors first. last</div>
-            <div className="text-charcoal/80">Dotted initials first, surname with Oxford comma and &ldquo;and&rdquo; (IEEE style: S. Ghosh, P. K. Chattopadhyay, and D. Bora).</div>
+            <div className="text-charcoal/80">Dotted initials first, surname with Oxford comma and &ldquo;and&rdquo; before last name</div>
           </div>
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors first last</div>
-            <div className="text-charcoal/80">Undotted initials first, surname (S Ghosh, P K Chattopadhyay, and D Bora).</div>
+            <div className="text-charcoal/80">Undotted initials first then surname </div>
           </div>
           <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
             <div className="font-mono font-semibold text-indigo-brand text-xs">authors</div>
-            <div className="text-charcoal/80">Default CiteFlow IOP style (Ghosh S, Chattopadhyay P K and Bora D).</div>
+            <div className="text-charcoal/80">CiteFlow IOP style (Ghosh S, Chattopadhyay P K and Bora D).</div>
           </div>
         </div>
 
@@ -280,8 +280,8 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
           <div>
             <strong className="text-indigo-brand">Author Format Differentiation:</strong>
             <ul className="list-disc list-inside mt-0.5 text-charcoal/80 space-y-0.5">
-              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first .</code> $\rightarrow$ Undotted initials with sentence period at end (space between &ldquo;first&rdquo; and &ldquo;.&rdquo;).</li>
-              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first.</code> $\rightarrow$ Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.).</li>
+              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first .</code> :- Undotted initials with sentence period at end (space between &ldquo;first&rdquo; and &ldquo;.&rdquo;).</li>
+              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first.</code> :- Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.).</li>
             </ul>
           </div>
 
