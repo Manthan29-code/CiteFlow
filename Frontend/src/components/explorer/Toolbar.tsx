@@ -1,9 +1,9 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles, Loader2 } from 'lucide-react';
+import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles, Loader2, FileText } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
 import { setSearchQuery, setViewMode } from '@/store/slices/explorerSlice';
-import { openJobDrawer, setJobs } from '@/store/slices/jobsSlice';
+import { openJobDrawer, setJobs, openGroupedTexModal } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
 import { StyleSelectorDropdown } from '@/components/styles/StyleSelectorDropdown';
@@ -19,6 +19,7 @@ export const Toolbar: React.FC = () => {
 
   const { searchQuery, viewMode, folderData } = useAppSelector((state) => state.explorer);
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
+  const jobsByFileId = useAppSelector((state) => state.jobs.jobsByFileId);
   const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
   const currentFolder = folderData?.folder;
 
@@ -27,6 +28,10 @@ export const Toolbar: React.FC = () => {
   const pdfFiles = useMemo(() => {
     return (folderData?.files || []).filter((f) => f.ext.toLowerCase() === 'pdf');
   }, [folderData?.files]);
+
+  const succeededCount = useMemo(() => {
+    return pdfFiles.filter((f) => jobsByFileId[f.id]?.status === 'succeeded').length;
+  }, [pdfFiles, jobsByFileId]);
 
   // Find active or recent job for easy re-opening
   const activeJob = React.useMemo(
@@ -176,6 +181,19 @@ export const Toolbar: React.FC = () => {
             <span>
               {isBatchGenerating ? 'Starting...' : `Generate Folder .tex (${pdfFiles.length})`}
             </span>
+          </Button>
+        )}
+
+        {succeededCount > 0 && currentFolder && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => dispatch(openGroupedTexModal(currentFolder.id))}
+            className="gap-1.5 text-indigo-brand border border-indigo-200 bg-white hover:bg-indigo-50/80 shadow-xs"
+            title={`View and download all ${succeededCount} citations combined in a single grouped .tex file`}
+          >
+            <FileText className="w-4 h-4 text-indigo-brand" />
+            <span>Grouped .tex ({succeededCount})</span>
           </Button>
         )}
 

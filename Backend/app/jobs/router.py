@@ -75,6 +75,55 @@ async def create_folder_jobs(
 
 
 @router.get(
+    "/folders/{folder_id}/tex",
+    operation_id="jobs_download_folder_tex",
+)
+async def download_folder_tex(
+    folder_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    style_id: Optional[UUID] = Query(None, description="Optional style ID to format citations with"),
+) -> Response:
+    """Downloads the combined grouped .tex document for all succeeded citations in a folder."""
+    tex_content, filename = await JobService.get_folder_tex(
+        db=db,
+        owner_id=current_user.id,
+        folder_id=folder_id,
+        style_id=style_id,
+    )
+    return Response(
+        content=tex_content,
+        media_type="text/x-tex",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post(
+    "/folders/{folder_id}/transform",
+    response_model=list[JobResponse],
+    dependencies=[Depends(check_csrf)],
+    operation_id="jobs_transform_folder_styles",
+)
+async def transform_folder_jobs(
+    folder_id: UUID,
+    body: JobTransformRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[JobResponse]:
+    """
+    Transforms the citation style of all succeeded jobs in a folder.
+    Uses cached metadata to re-render result_tex instantaneously.
+    """
+    jobs = await JobService.transform_folder_jobs(
+        db=db,
+        owner_id=current_user.id,
+        folder_id=folder_id,
+        style_id=body.style_id,
+    )
+    return [JobResponse.model_validate(j) for j in jobs]
+
+
+@router.get(
     "/jobs/{id}",
     response_model=JobResponse,
     operation_id="jobs_get_detail",

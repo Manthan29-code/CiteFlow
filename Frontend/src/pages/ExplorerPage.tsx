@@ -13,6 +13,7 @@ import { DeleteConfirmDialog } from '@/components/explorer/DeleteConfirmDialog';
 import { TitleConfirmDialog } from '@/components/jobs/TitleConfirmDialog';
 import { ReviewFormDialog } from '@/components/jobs/ReviewFormDialog';
 import { TexPreviewDialog } from '@/components/jobs/TexPreviewDialog';
+import { GroupedTexPreviewDialog } from '@/components/jobs/GroupedTexPreviewDialog';
 import { StyleManagerDialog } from '@/components/styles/StyleManagerDialog';
 import { JobPanel } from '@/components/jobs/JobPanel';
 import { ActiveJobDock } from '@/components/jobs/ActiveJobDock';
@@ -160,6 +161,7 @@ export const ExplorerPage: React.FC = () => {
       <TitleConfirmDialog />
       <ReviewFormDialog />
       <TexPreviewDialog />
+      <GroupedTexPreviewDialog />
       <StyleManagerDialog />
 
       {/* Floating Drawers & Docks */}

@@ -79,7 +79,7 @@ def upgrade() -> None:
                 NULL,
                 'IOP (Default)',
                 'iop-default',
-                $$\bibitem{<CITATION_KEY>} <AUTHORS> <YEAR> \textit{<JOURNAL_ABBREVIATION>} \href{<DOI_URL>}{\textbf{<VOLUME>} <LOCATOR>}.$$,
+                $$\bibitem{citation key} authors year \textit{journal abbreviation} \href{doi url}{\textbf{volume} locator}.$$,
                 true,
                 NOW(),
                 NOW()
@@ -89,7 +89,7 @@ def upgrade() -> None:
                 NULL,
                 'AMA / Vancouver',
                 'ama-vancouver',
-                $$\bibitem{<CITATION_KEY>} <AUTHORS_LAST_FIRST()>. <TITLE>. <JOURNAL_ABBREVIATION> <YEAR>;<VOLUME>(<ISSUE>):<ARTICLE_NUMBER>. doi:<DOI>.$$,
+                $$\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue):article number. doi:doi.$$,
                 true,
                 NOW(),
                 NOW()
@@ -99,7 +99,7 @@ def upgrade() -> None:
                 NULL,
                 'IEEE',
                 'ieee',
-                $$\bibitem{<CITATION_KEY>} <AUTHORS_FIRST(.)_LAST>, ``<TITLE>,'' \textit{<JOURNAL>}, vol. <VOLUME>, no. <ISSUE>, Article <ARTICLE_NUMBER>, <YEAR>. \href{<DOI_URL>}{<DOI_URL>}$$,
+                $$\bibitem{citation key} authors first. last, ``title,'' \textit{journal}, vol. volume, no. issue, Article article number, year. \href{doi url}{doi url}$$,
                 true,
                 NOW(),
                 NOW()

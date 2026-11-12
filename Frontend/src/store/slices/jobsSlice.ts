@@ -9,6 +9,7 @@ export interface JobsState {
   activeTitleConfirmJobId: string | null;
   activeReviewJobId: string | null;
   activeTexPreviewJobId: string | null;
+  activeGroupedTexFolderId: string | null;
 }
 
 const initialState: JobsState = {
@@ -19,6 +20,7 @@ const initialState: JobsState = {
   activeTitleConfirmJobId: null,
   activeReviewJobId: null,
   activeTexPreviewJobId: null,
+  activeGroupedTexFolderId: null,
 };
 
 export const jobsSlice = createSlice({
@@ -79,6 +81,12 @@ export const jobsSlice = createSlice({
     closeTexPreviewModal(state) {
       state.activeTexPreviewJobId = null;
     },
+    openGroupedTexModal(state, action: PayloadAction<string>) {
+      state.activeGroupedTexFolderId = action.payload;
+    },
+    closeGroupedTexModal(state) {
+      state.activeGroupedTexFolderId = null;
+    },
     removeJobsForFile(state, action: PayloadAction<string>) {
       const fileId = action.payload;
       delete state.jobsByFileId[fileId];
@@ -103,6 +111,8 @@ export const {
   closeReviewModal,
   openTexPreviewModal,
   closeTexPreviewModal,
+  openGroupedTexModal,
+  closeGroupedTexModal,
   removeJobsForFile,
 } = jobsSlice.actions;
 

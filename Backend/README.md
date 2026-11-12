@@ -80,7 +80,7 @@ alembic upgrade head
 ### 3. Launch the Server
 ```bash
 cd Backend
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 Interactive OpenAPI documentation is available at: `http://localhost:8000/docs` or `http://localhost:8000/openapi.json`.

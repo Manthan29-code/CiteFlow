@@ -16,6 +16,13 @@ from citegen.latex.style_engine import (
     validate_citation_template,
 )
 
+# Canonical clean lowercase presets for system built-in styles
+BUILTIN_PRESET_TEMPLATES = {
+    "iop-default": r"\bibitem{citation key} authors year \textit{journal abbreviation} \href{doi url}{\textbf{volume} locator}.",
+    "ama-vancouver": r"\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue):article number. doi:doi.",
+    "ieee": r"\bibitem{citation key} authors first. last, ``title,'' \textit{journal}, vol. volume, no. issue, Article article number, year. \href{doi url}{doi url}",
+}
+
 
 def slugify(text: str) -> str:
     """Generates a clean URL/storage slug from a string."""
@@ -29,6 +36,7 @@ class CitationStyleService:
         """
         Lists all styles accessible to the user:
         built-in system styles and custom styles owned by owner_id.
+        Automatically upgrades built-in style templates to the canonical lowercase format if needed.
         """
         stmt = (
             select(CitationStyle)
@@ -41,7 +49,26 @@ class CitationStyleService:
             .order_by(CitationStyle.is_builtin.desc(), CitationStyle.created_at.asc())
         )
         result = await db.execute(stmt)
-        return list(result.scalars().all())
+        styles = list(result.scalars().all())
+
+        # Auto-sync built-in presets to clean lowercase syntax if older <TAG> format was present
+        needs_commit = False
+        for s in styles:
+            if s.is_builtin and s.slug in BUILTIN_PRESET_TEMPLATES:
+                canonical = BUILTIN_PRESET_TEMPLATES[s.slug]
+                if s.template != canonical:
+                    s.template = canonical
+                    s.updated_at = utc_now()
+                    db.add(s)
+                    needs_commit = True
+
+        if needs_commit:
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
+
+        return styles
 
     @classmethod
     async def get_style(cls, db: AsyncSession, owner_id: UUID, style_id: UUID) -> CitationStyle:
@@ -226,4 +253,3 @@ class CitationStyleService:
                 is_valid = False
 
         return is_valid, errors, preview
-

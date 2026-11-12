@@ -9,7 +9,6 @@ import {
   FileText,
   Info,
   Sparkles,
-  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch } from '@/store/hooks';
@@ -25,130 +24,137 @@ export interface VariableItem {
 }
 
 const VARIABLES: VariableItem[] = [
-  // Author representations
+  // Author representations in lowercase
   {
-    tag: '<AUTHORS_LAST_FIRST(.)>',
+    tag: 'authors last first .',
     category: 'author',
-    name: 'Surname First, Dotted Initials',
-    description: 'Surname first, dotted initials separated by commas.',
-    example: 'Ghosh S., Chattopadhyay P. K., Bora D.',
-  },
-  {
-    tag: '<AUTHORS_LAST_FIRST()>',
-    category: 'author',
-    name: 'Surname First, Compressed Initials',
-    description: 'Surname first, undotted compressed initials separated by commas (Vancouver / AMA style).',
+    name: 'Surname First, Undotted + Trailing Period',
+    description: 'Surname first, undotted compressed initials followed by sentence period (Vancouver / AMA style: Ghosh S, Chattopadhyay PK.). Space before dot distinguishes from dotted initials.',
     example: 'Ghosh S, Chattopadhyay PK, Bora D.',
   },
   {
-    tag: '<AUTHORS_FIRST(.)_LAST>',
+    tag: 'authors last first.',
+    category: 'author',
+    name: 'Surname First, Dotted Initials',
+    description: 'Surname first, dotted initials (Ghosh S., Chattopadhyay P. K.) separated by commas.',
+    example: 'Ghosh S., Chattopadhyay P. K., Bora D.',
+  },
+  {
+    tag: 'authors last first',
+    category: 'author',
+    name: 'Surname First, Compressed Initials',
+    description: 'Surname first, undotted compressed initials (Ghosh S, Chattopadhyay PK) separated by commas (Vancouver / AMA style).',
+    example: 'Ghosh S, Chattopadhyay PK, Bora D',
+  },
+  {
+    tag: 'authors first. last',
     category: 'author',
     name: 'Dotted Initials First, Surname',
-    description: 'Dotted initials first, surname with Oxford comma and "and" (IEEE style).',
+    description: 'Dotted initials first, surname (S. Ghosh, P. K. Chattopadhyay, and D. Bora) with Oxford comma and "and" (IEEE style).',
     example: 'S. Ghosh, P. K. Chattopadhyay, and D. Bora',
   },
   {
-    tag: '<AUTHORS_FIRST()_LAST>',
+    tag: 'authors first last',
     category: 'author',
     name: 'Undotted Initials First, Surname',
-    description: 'Undotted initials first, surname with "and".',
+    description: 'Undotted initials first, surname (S Ghosh, P K Chattopadhyay, and D Bora) with "and".',
     example: 'S Ghosh, P K Chattopadhyay, and D Bora',
   },
   {
-    tag: '<AUTHORS>',
+    tag: 'authors',
     category: 'author',
     name: 'Default CiteFlow IOP Author List',
-    description: 'Default CiteFlow IOP style author format.',
+    description: 'Default CiteFlow IOP style author format (Ghosh S, Chattopadhyay P K and Bora D).',
     example: 'Ghosh S, Chattopadhyay P K and Bora D',
   },
 
-  // Bibliographic metadata
+  // Bibliographic metadata in lowercase
   {
-    tag: '<CITATION_KEY>',
+    tag: 'citation key',
     category: 'metadata',
     name: 'Citation Key',
     description: 'First author surname + year identifier for \\bibitem.',
     example: 'Ghosh2017',
   },
   {
-    tag: '<TITLE>',
+    tag: 'title',
     category: 'metadata',
     name: 'Paper Title',
     description: 'Full sanitized document title.',
     example: 'Transition from single to multiple axial potential structure in expanding helicon plasma',
   },
   {
-    tag: '<JOURNAL>',
+    tag: 'journal',
     category: 'metadata',
     name: 'Journal Name',
     description: 'Full standard journal publication title.',
     example: 'Journal of Physics D: Applied Physics',
   },
   {
-    tag: '<JOURNAL_ABBREVIATION>',
+    tag: 'journal abbreviation',
     category: 'metadata',
     name: 'ISO Journal Abbreviation',
     description: 'Standard ISO abbreviation for the journal.',
-    fallback: 'Falls back to <JOURNAL> if absent',
+    fallback: 'Falls back to journal if absent',
     example: 'J Phys D Appl Phys',
   },
   {
-    tag: '<YEAR>',
+    tag: 'year',
     category: 'metadata',
     name: 'Publication Year',
     description: '4-digit publication calendar year.',
     example: '2017',
   },
   {
-    tag: '<VOLUME>',
+    tag: 'volume',
     category: 'metadata',
     name: 'Journal Volume',
     description: 'Journal volume designation.',
     example: '50',
   },
   {
-    tag: '<ISSUE>',
+    tag: 'issue',
     category: 'metadata',
     name: 'Journal Issue',
     description: 'Issue or edition number within volume.',
     example: '6',
   },
   {
-    tag: '<ARTICLE_NUMBER>',
+    tag: 'article number',
     category: 'metadata',
     name: 'Article Identifier',
     description: 'Unique electronic article / CID number.',
-    fallback: 'Falls back to <FIRST_PAGE> if absent',
+    fallback: 'Falls back to first page if absent',
     example: '065201',
   },
   {
-    tag: '<FIRST_PAGE>',
+    tag: 'first page',
     category: 'metadata',
     name: 'First Page Number',
     description: 'Initial page of printed article span.',
-    fallback: 'Falls back to <ARTICLE_NUMBER> if absent',
+    fallback: 'Falls back to article number if absent',
     example: '459',
   },
   {
-    tag: '<LOCATOR>',
+    tag: 'locator',
     category: 'metadata',
     name: 'Smart Locator (Page / Article ID)',
-    description: 'Automatically chooses <ARTICLE_NUMBER> or <FIRST_PAGE> based on availability.',
-    fallback: 'Auto-picks article_number or first_page',
+    description: 'Automatically chooses article number or first page based on availability.',
+    fallback: 'Auto-picks article number or first page',
     example: '065201',
   },
   {
-    tag: '<DOI>',
+    tag: 'doi',
     category: 'metadata',
     name: 'Raw Digital Object Identifier',
-    description: 'DOI identifier without http/https protocol prefix.',
+    description: 'Raw DOI identifier without URL prefix.',
     example: '10.1088/1361-6463/aa5068',
   },
   {
-    tag: '<DOI_URL>',
+    tag: 'doi url',
     category: 'metadata',
     name: 'Clickable DOI URL',
-    description: 'Complete HTTPS DOI link, ideal for \\href{<DOI_URL>}{...}.',
+    description: 'Complete HTTPS DOI link, ideal for \\href{doi url}{doi url}.',
     example: 'https://doi.org/10.1088/1361-6463/aa5068',
   },
 ];
@@ -192,7 +198,7 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
       dispatch(
         addToast({
           type: 'success',
-          message: `Copied ${tag} to clipboard.`,
+          message: `Copied "${tag}" to clipboard.`,
         })
       );
       setTimeout(() => setCopiedTag(null), 2000);
@@ -232,22 +238,57 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
         </div>
       </div>
 
-      {/* Author Threshold Rule Alert Box */}
-      <div className="p-3.5 sm:p-4 rounded-xl bg-cream-100 border border-border-light text-xs text-charcoal-800 space-y-1.5 shadow-2xs">
+      {/* Author Representation & Generalization Rules */}
+      <div className="p-3.5 sm:p-4 rounded-xl bg-cream-100 border border-border-light text-xs text-charcoal-800 space-y-2 shadow-2xs">
         <div className="flex items-center gap-2 font-serif font-bold text-sm text-charcoal-900">
           <Users className="w-4 h-4 text-indigo-brand shrink-0" />
-          <span>Author Representation &amp; Generalization Rules</span>
+          <span>Author Representation &amp; Generalization</span>
         </div>
         <p className="text-[11px] font-sans text-charcoal/80 leading-relaxed">
-          CiteFlow supports multiple standard author formatting patterns. Choose initial placement, dotting, and separators using the uppercase tag variants below.
+          You can write variables in lowercase or uppercase without any angle brackets. Select the exact author format you need:
         </p>
-        <div className="mt-2 pt-2 border-t border-border-light/70 flex items-start gap-2 text-[11px] font-mono text-indigo-950 bg-white/70 p-2.5 rounded-lg border border-indigo-100">
-          <Sparkles className="w-4 h-4 text-indigo-brand shrink-0 mt-0.5" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-sans">
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first .</div>
+            <div className="text-charcoal/80">Surname first, undotted compressed initials + sentence period (AMA / Vancouver: Ghosh S, Chattopadhyay PK.). Space before dot.</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first.</div>
+            <div className="text-charcoal/80">Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.). Dot attached directly to first.</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first</div>
+            <div className="text-charcoal/80">Surname first, undotted compressed initials without period (Ghosh S, Chattopadhyay PK).</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors first. last</div>
+            <div className="text-charcoal/80">Dotted initials first, surname with Oxford comma and &ldquo;and&rdquo; (IEEE style: S. Ghosh, P. K. Chattopadhyay, and D. Bora).</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors first last</div>
+            <div className="text-charcoal/80">Undotted initials first, surname (S Ghosh, P K Chattopadhyay, and D Bora).</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
+            <div className="font-mono font-semibold text-indigo-brand text-xs">authors</div>
+            <div className="text-charcoal/80">Default CiteFlow IOP style (Ghosh S, Chattopadhyay P K and Bora D).</div>
+          </div>
+        </div>
+
+        {/* Trailing Dot & Threshold Rules */}
+        <div className="mt-2 pt-2 border-t border-border-light/70 space-y-1.5 text-[11px] font-mono text-indigo-950 bg-white/70 p-2.5 rounded-lg border border-indigo-100">
           <div>
-            <strong className="text-indigo-brand">Threshold Rule:</strong> Correctly preserves all authors for{' '}
-            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">&le; 7</code> authors, and prints the first author +{' '}
-            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">\textit&#123;et al.&#125;</code> when authors exceed{' '}
-            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">&gt; 7</code>.
+            <strong className="text-indigo-brand">Author Format Differentiation:</strong>
+            <ul className="list-disc list-inside mt-0.5 text-charcoal/80 space-y-0.5">
+              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first .</code> $\rightarrow$ Undotted initials with sentence period at end (space between &ldquo;first&rdquo; and &ldquo;.&rdquo;).</li>
+              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first.</code> $\rightarrow$ Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.).</li>
+            </ul>
+          </div>
+
+          <div className="pt-1 border-t border-indigo-50">
+            <strong className="text-indigo-brand">Threshold Rule &amp; Checkbox:</strong> When enabled, papers with{' '}
+            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">&gt; 7</code> authors only show the first author +{' '}
+            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">\textit&#123;et al.&#125;</code>. When unchecked, all authors are displayed regardless of count.
           </div>
         </div>
       </div>
@@ -323,9 +364,9 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-cream-100/80 sticky top-0 z-10 border-b border-border-light text-[10px] font-mono uppercase tracking-wider text-charcoal/60">
               <tr>
-                <th className="py-2.5 px-3 font-semibold">Variable Tag</th>
+                <th className="py-2.5 px-3 font-semibold">Variable Name</th>
                 <th className="py-2.5 px-3 font-semibold">Description &amp; Rules</th>
-                <th className="py-2.5 px-3 font-semibold">Example Value</th>
+                <th className="py-2.5 px-3 font-semibold">Example Output</th>
                 <th className="py-2.5 px-3 text-right font-semibold">Action</th>
               </tr>
             </thead>
@@ -466,4 +507,3 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
     </div>
   );
 };
-

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.base import utc_now
 from app.db.models.file import File
+from app.db.models.folder import Folder
 from app.db.models.job import Job
 from app.jobs.runner import broadcast_status, cancel_running_task, dispatch_job
 from app.jobs.schemas import ResumeRequest
@@ -486,3 +487,172 @@ class JobService:
         tex_filename = f"{clean_name}.tex"
 
         return job.result_tex, tex_filename
+
+    @classmethod
+    async def get_folder_tex(
+        cls,
+        db: AsyncSession,
+        owner_id: UUID,
+        folder_id: UUID,
+        style_id: Optional[UUID] = None,
+    ) -> Tuple[str, str]:
+        """
+        Gathers all succeeded citation jobs for files in folder_id,
+        renders each citation with its own \\begin{thebibliography}{99} block,
+        and wraps them in a standalone document.
+        Returns (tex_content, filename).
+        """
+        # 1. Verify folder exists and belongs to owner
+        folder_stmt = select(Folder).where(Folder.id == folder_id, Folder.owner_id == owner_id)
+        folder = (await db.execute(folder_stmt)).scalar_one_or_none()
+        if not folder:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": {"code": "folder_not_found", "message": "Folder not found.", "details": {}}},
+            )
+
+        # 2. Get all files in this folder
+        files_stmt = select(File).where(File.folder_id == folder_id, File.owner_id == owner_id)
+        files = list((await db.execute(files_stmt)).scalars().all())
+        file_ids = [f.id for f in files]
+
+        if not file_ids:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": {"code": "no_citations", "message": "No files found in folder.", "details": {}}},
+            )
+
+        # 3. Get latest succeeded job for each file
+        jobs_stmt = (
+            select(Job)
+            .where(Job.file_id.in_(file_ids), Job.owner_id == owner_id, Job.status == "succeeded")
+            .order_by(Job.created_at.asc())
+        )
+        all_jobs = list((await db.execute(jobs_stmt)).scalars().all())
+
+        latest_jobs_by_file: Dict[UUID, Job] = {}
+        for j in all_jobs:
+            latest_jobs_by_file[j.file_id] = j
+
+        succeeded_jobs = list(latest_jobs_by_file.values())
+        if not succeeded_jobs:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": {"code": "no_succeeded_citations", "message": "No succeeded citations in this folder.", "details": {}}},
+            )
+
+        # 4. If style_id provided, get template
+        template: Optional[str] = None
+        if style_id:
+            from app.db.models.citation_style import CitationStyle
+            stmt = select(CitationStyle).where(
+                CitationStyle.id == style_id,
+                or_(CitationStyle.is_builtin.is_(True), CitationStyle.owner_id == owner_id),
+            )
+            style_rec = (await db.execute(stmt)).scalar_one_or_none()
+            if style_rec:
+                template = style_rec.template
+
+        from citegen.latex.style_engine import format_bibitem_with_style
+        from citegen.latex.citation_keys import generate_base_citation_key
+        from citegen.metadata.models import ArticleMetadata
+
+        bibitems: List[str] = []
+        for j in succeeded_jobs:
+            if template and j.result_metadata:
+                meta = ArticleMetadata(**j.result_metadata)
+                key = generate_base_citation_key(meta)
+                item = format_bibitem_with_style(meta, template, citation_key=key)
+                bibitems.append(item)
+            elif j.result_tex:
+                # Extract the \bibitem from existing result_tex
+                match = re.search(r"(\\bibitem\{[^}]+\}.*?)(?=\\end\{thebibliography\}|\Z)", j.result_tex, re.DOTALL)
+                if match:
+                    bibitems.append(match.group(1).strip())
+                else:
+                    bibitems.append(j.result_tex.strip())
+
+        # Construct grouped document with separate thebibliography blocks
+        blocks = [f"\\begin{{thebibliography}}{{99}}\n{b}\n\\end{{thebibliography}}" for b in bibitems]
+        body = "\n\n\n".join(blocks)
+        grouped_tex = (
+            "\\documentclass{article}\n"
+            "\\usepackage{hyperref}\n\n"
+            "\\begin{document}\n\n"
+            f"{body}\n\n\n"
+            "\\end{document}\n"
+        )
+
+        clean_folder = re.sub(r"[^a-zA-Z0-9_\-]", "_", folder.name) or "citations"
+        filename = f"{clean_folder}_citations.tex"
+        return grouped_tex, filename
+
+    @classmethod
+    async def transform_folder_jobs(
+        cls,
+        db: AsyncSession,
+        owner_id: UUID,
+        folder_id: UUID,
+        style_id: Optional[UUID] = None,
+    ) -> List[Job]:
+        """
+        Transforms all succeeded jobs for files in folder_id to style_id.
+        Returns the list of updated jobs.
+        """
+        files_stmt = select(File).where(File.folder_id == folder_id, File.owner_id == owner_id)
+        files = list((await db.execute(files_stmt)).scalars().all())
+        file_ids = [f.id for f in files]
+
+        if not file_ids:
+            return []
+
+        jobs_stmt = (
+            select(Job)
+            .where(Job.file_id.in_(file_ids), Job.owner_id == owner_id, Job.status == "succeeded")
+            .order_by(Job.created_at.asc())
+        )
+        all_jobs = list((await db.execute(jobs_stmt)).scalars().all())
+
+        latest_jobs_by_file: Dict[UUID, Job] = {}
+        for j in all_jobs:
+            latest_jobs_by_file[j.file_id] = j
+
+        template: Optional[str] = None
+        if style_id:
+            from app.db.models.citation_style import CitationStyle
+            stmt = select(CitationStyle).where(
+                CitationStyle.id == style_id,
+                or_(CitationStyle.is_builtin.is_(True), CitationStyle.owner_id == owner_id),
+            )
+            style_rec = (await db.execute(stmt)).scalar_one_or_none()
+            if not style_rec:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"error": {"code": "style_not_found", "message": f"Citation style '{style_id}' not found.", "details": {}}},
+                )
+            template = style_rec.template
+
+        from citegen.api import render_single_record
+
+        updated_jobs: List[Job] = []
+        for job in latest_jobs_by_file.values():
+            if not job.result_metadata:
+                continue
+            rendered_tex = render_single_record(
+                metadata=job.result_metadata,
+                template=template,
+                standalone=(job.tex_mode == "standalone"),
+            )
+            job.style_id = style_id
+            job.result_tex = rendered_tex
+            job.updated_at = utc_now()
+            db.add(job)
+            updated_jobs.append(job)
+
+        if updated_jobs:
+            await db.commit()
+            for j in updated_jobs:
+                await db.refresh(j)
+                cls._enrich_pending_interrupt(j)
+
+        return updated_jobs

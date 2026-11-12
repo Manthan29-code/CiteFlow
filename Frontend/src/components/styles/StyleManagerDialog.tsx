@@ -43,6 +43,7 @@ export const StyleManagerDialog: React.FC = () => {
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
   const [template, setTemplate] = useState<string>('');
+  const [truncateAuthors, setTruncateAuthors] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -77,9 +78,13 @@ export const StyleManagerDialog: React.FC = () => {
 
   // Handle autocomplete filtering
   const filteredFields = useMemo(() => {
-    if (!suggestionQuery) return allowedFields;
-    const q = suggestionQuery.toUpperCase();
-    return allowedFields.filter((f) => f.toUpperCase().includes(q));
+    if (!suggestionQuery.trim()) return allowedFields;
+    const q = suggestionQuery.toLowerCase().trim();
+    const starts = allowedFields.filter((f) => f.toLowerCase().startsWith(q));
+    const includes = allowedFields.filter(
+      (f) => !f.toLowerCase().startsWith(q) && f.toLowerCase().includes(q)
+    );
+    return [...starts, ...includes];
   }, [allowedFields, suggestionQuery]);
 
   // Live validation & preview debounce
@@ -92,18 +97,23 @@ export const StyleManagerDialog: React.FC = () => {
       return;
     }
 
-    // Local tag syntax check
-    const tagMatches = template.match(/<([^>]+)>/g) || [];
+    // Local variable presence check (case-insensitive)
+    const lowerTemplate = template.toLowerCase();
+    const hasVariable = allowedFields.some((f) => lowerTemplate.includes(f.toLowerCase()));
     const localErrors: string[] = [];
 
-    if (tagMatches.length === 0) {
-      localErrors.push('Template must contain at least one valid <TAG> placeholder.');
+    if (!hasVariable) {
+      localErrors.push(
+        'Template must contain at least one valid metadata variable (e.g. authors, title, journal, year, doi).'
+      );
     }
 
+    // If explicit bracketed tags are present, check them
+    const tagMatches = template.match(/<([^>]+)>/g) || [];
     tagMatches.forEach((rawTag) => {
-      const cleanTag = rawTag.slice(1, -1).trim();
-      if (!allowedFields.includes(cleanTag)) {
-        localErrors.push(`Unknown field tag '${rawTag}'.`);
+      const cleanTag = rawTag.slice(1, -1).trim().toLowerCase();
+      if (!allowedFields.some((f) => f.toLowerCase() === cleanTag)) {
+        localErrors.push(`Unknown bracketed field '${rawTag}'.`);
       }
     });
 
@@ -118,7 +128,16 @@ export const StyleManagerDialog: React.FC = () => {
     setIsValidating(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await validateCitationTemplate(template);
+        let previewTemplate = template.trim();
+        if (!truncateAuthors) {
+          if (!previewTemplate.includes('% truncate_authors: false')) {
+            previewTemplate = `${previewTemplate}\n% truncate_authors: false`;
+          }
+        } else {
+          previewTemplate = previewTemplate.replace(/\n?% truncate_authors: false/g, '').trim();
+        }
+
+        const res = await validateCitationTemplate(previewTemplate);
         if (!isCancelled) {
           if (res.valid) {
             setValidationErrors([]);
@@ -142,15 +161,16 @@ export const StyleManagerDialog: React.FC = () => {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [template, mode, allowedFields]);
+  }, [template, mode, allowedFields, truncateAuthors]);
 
   const handleOpenCreate = (baseTemplate?: string, baseName?: string) => {
     setEditingStyleId(null);
     setName(baseName ? `${baseName} (Copy)` : '');
-    setTemplate(
+    const initialTpl =
       baseTemplate ||
-        '\\bibitem{<CITATION_KEY>} <AUTHORS_LAST_FIRST()>. <TITLE>. <JOURNAL_ABBREVIATION> <YEAR>;<VOLUME>(<ISSUE>):<ARTICLE_NUMBER>. doi:<DOI>.'
-    );
+      '\\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue):article number. doi:doi.';
+    setTruncateAuthors(!initialTpl.includes('% truncate_authors: false'));
+    setTemplate(initialTpl.replace(/\n?% truncate_authors: false/g, '').trim());
     setMode('editor');
   };
 
@@ -158,7 +178,8 @@ export const StyleManagerDialog: React.FC = () => {
     if (style.is_builtin) return;
     setEditingStyleId(style.id);
     setName(style.name);
-    setTemplate(style.template);
+    setTruncateAuthors(!style.template.includes('% truncate_authors: false'));
+    setTemplate(style.template.replace(/\n?% truncate_authors: false/g, '').trim());
     setMode('editor');
   };
 
@@ -172,20 +193,65 @@ export const StyleManagerDialog: React.FC = () => {
     const cursorPos = e.target.selectionStart;
     setTemplate(val);
 
-    // Look backwards from cursor to see if inside an unclosed `<`
     const textBeforeCursor = val.slice(0, cursorPos);
+
+    // 1. Check if inside an unclosed '<' (legacy support)
     const lastOpenIndex = textBeforeCursor.lastIndexOf('<');
     const lastCloseIndex = textBeforeCursor.lastIndexOf('>');
-
     if (lastOpenIndex !== -1 && lastOpenIndex > lastCloseIndex) {
       const query = textBeforeCursor.slice(lastOpenIndex + 1);
       setShowSuggestions(true);
       setSuggestionQuery(query);
       setSuggestionCursorStart(lastOpenIndex);
       setActiveSuggestionIndex(0);
-    } else {
-      setShowSuggestions(false);
+      return;
     }
+
+    // 2. Check if typing a LaTeX macro (e.g. \bibitem, \textit) -> skip
+    if (textBeforeCursor.endsWith('\\') || /\\[a-zA-Z]+$/.test(textBeforeCursor)) {
+      setShowSuggestions(false);
+      return;
+    }
+
+    // 3. Multi-word variable prefix check (case-insensitive)
+    const multiMatch = textBeforeCursor.match(
+      /(?:^|[^a-zA-Z0-9_\\])((?:authors|journal|citation|article|first|doi)\b[^\n\r{}\\;:(),]*)$/i
+    );
+    if (multiMatch) {
+      const candidate = multiMatch[1];
+      const matchPos = textBeforeCursor.lastIndexOf(candidate);
+      const q = candidate.toLowerCase().trim();
+      const hasMatch = allowedFields.some(
+        (f) => f.toLowerCase().startsWith(q) || f.toLowerCase().includes(q)
+      );
+      if (hasMatch && q.length >= 1) {
+        setShowSuggestions(true);
+        setSuggestionQuery(candidate);
+        setSuggestionCursorStart(matchPos);
+        setActiveSuggestionIndex(0);
+        return;
+      }
+    }
+
+    // 4. Single-word token check (case-insensitive)
+    const singleMatch = textBeforeCursor.match(/(?:^|[^a-zA-Z0-9_\\])([a-zA-Z0-9_]+)$/);
+    if (singleMatch) {
+      const candidate = singleMatch[1];
+      const matchPos = textBeforeCursor.lastIndexOf(candidate);
+      const q = candidate.toLowerCase().trim();
+      const hasMatch = allowedFields.some(
+        (f) => f.toLowerCase().startsWith(q) || f.toLowerCase().includes(q)
+      );
+      if (hasMatch && q.length >= 1) {
+        setShowSuggestions(true);
+        setSuggestionQuery(candidate);
+        setSuggestionCursorStart(matchPos);
+        setActiveSuggestionIndex(0);
+        return;
+      }
+    }
+
+    setShowSuggestions(false);
   };
 
   const insertTag = (tag: string) => {
@@ -198,7 +264,7 @@ export const StyleManagerDialog: React.FC = () => {
     if (showSuggestions && suggestionCursorStart !== -1) {
       before = template.slice(0, suggestionCursorStart);
       const afterCursor = template.slice(textarea.selectionEnd);
-      // If there is an immediate closing '>', skip it
+      // If user typed with '<' and there's an immediate closing '>', skip it
       after = afterCursor.startsWith('>') ? afterCursor.slice(1) : afterCursor;
     } else {
       const pos = textarea.selectionStart || template.length;
@@ -206,7 +272,7 @@ export const StyleManagerDialog: React.FC = () => {
       after = template.slice(pos);
     }
 
-    const inserted = `<${tag}>`;
+    const inserted = tag;
     const newContent = before + inserted + after;
     setTemplate(newContent);
     setShowSuggestions(false);
@@ -248,11 +314,20 @@ export const StyleManagerDialog: React.FC = () => {
 
     setIsSaving(true);
     try {
+      let finalTemplate = template.trim();
+      if (!truncateAuthors) {
+        if (!finalTemplate.includes('% truncate_authors: false')) {
+          finalTemplate = `${finalTemplate}\n% truncate_authors: false`;
+        }
+      } else {
+        finalTemplate = finalTemplate.replace(/\n?% truncate_authors: false/g, '').trim();
+      }
+
       if (editingStyleId) {
-        await dispatch(editStyle({ id: editingStyleId, data: { name: name.trim(), template: template.trim() } })).unwrap();
+        await dispatch(editStyle({ id: editingStyleId, data: { name: name.trim(), template: finalTemplate } })).unwrap();
         dispatch(addToast({ type: 'success', message: `Style "${name}" updated successfully.` }));
       } else {
-        const created = await dispatch(createNewStyle({ name: name.trim(), template: template.trim() })).unwrap();
+        const created = await dispatch(createNewStyle({ name: name.trim(), template: finalTemplate })).unwrap();
         dispatch(addToast({ type: 'success', message: `Style "${name}" created and selected.` }));
       }
       setMode('list');
@@ -291,7 +366,7 @@ export const StyleManagerDialog: React.FC = () => {
         mode === 'guide'
           ? 'Complete reference for author representation variants, bibliographic variables, and fallback rules.'
           : mode === 'editor'
-          ? 'Define your LaTeX \\bibitem template using uppercase <TAG> placeholders.'
+          ? 'Define your LaTeX \\bibitem template using variables (e.g. authors, title, journal, year, doi).'
           : 'Customize, create, and manage reference bibliography formats.'
       }
       maxWidth={mode === 'guide' ? '4xl' : '3xl'}
@@ -489,7 +564,7 @@ export const StyleManagerDialog: React.FC = () => {
                   <span>Variables Guide</span>
                 </button>
                 <span className="text-[11px] font-mono text-charcoal/40 hidden sm:inline">
-                  Type <kbd className="px-1 py-0.5 rounded bg-cream-200 border border-border-light text-charcoal-900">&lt;</kbd> for autocomplete
+                  Type variable name for autocomplete
                 </span>
               </div>
             </div>
@@ -521,7 +596,7 @@ export const StyleManagerDialog: React.FC = () => {
                 value={template}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g. \bibitem{<CITATION_KEY>} <AUTHORS_LAST_FIRST()>. <TITLE>. <JOURNAL_ABBREVIATION> <YEAR>;<VOLUME>(<ISSUE>):<ARTICLE_NUMBER>. doi:<DOI>."
+                placeholder="e.g. \bibitem{citation key} authors last first. title. journal abbreviation year;volume(issue):article number. doi:doi."
                 className="w-full px-3 py-2 text-xs font-mono bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-indigo-brand leading-relaxed"
               />
 
@@ -540,7 +615,7 @@ export const StyleManagerDialog: React.FC = () => {
                     </div>
                     {filteredFields.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-cream/50 font-mono">
-                        No matching field tags.
+                        No matching fields.
                       </div>
                     ) : (
                       filteredFields.map((field, idx) => (
@@ -558,7 +633,7 @@ export const StyleManagerDialog: React.FC = () => {
                               : 'text-cream/80 hover:bg-charcoal-800 hover:text-white'
                           )}
                         >
-                          <span className="font-semibold">&lt;{field}&gt;</span>
+                          <span className="font-semibold">{field}</span>
                           <span className="text-[10px] opacity-60">Tab / Enter</span>
                         </button>
                       ))
@@ -566,6 +641,26 @@ export const StyleManagerDialog: React.FC = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+
+            {/* Author Threshold Checkbox (> 7 authors rule) */}
+            <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl bg-white border border-border-light shadow-2xs">
+              <input
+                id="truncate-authors-checkbox"
+                type="checkbox"
+                checked={truncateAuthors}
+                onChange={(e) => setTruncateAuthors(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
+              />
+              <label htmlFor="truncate-authors-checkbox" className="text-xs text-charcoal-900 cursor-pointer select-none">
+                <span className="font-semibold block text-xs">
+                  First author shown for &gt; 7 authors (Threshold Rule)
+                </span>
+                <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
+                  If checked, citations with &gt; 7 authors only show the first author followed by{' '}
+                  <code className="font-mono text-indigo-brand">\textit&#123;et al.&#125;</code>. If unchecked, all authors are shown.
+                </span>
+              </label>
             </div>
 
             {/* Validation Errors Box */}

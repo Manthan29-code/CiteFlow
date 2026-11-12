@@ -91,6 +91,36 @@ export async function downloadJobTex(jobId: string): Promise<string> {
   return res.text();
 }
 
+export async function downloadFolderTex(
+  folderId: string,
+  styleId?: string | null
+): Promise<string> {
+  const qs = styleId ? `?style_id=${styleId}` : '';
+  const url = `${env.VITE_API_BASE_URL}/folders/${folderId}/tex${qs}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to download folder .tex: HTTP ${res.status}`);
+  }
+
+  return res.text();
+}
+
+export async function transformFolderStyle(
+  folderId: string,
+  styleId?: string | null
+): Promise<JobResponse[]> {
+  return apiClient<JobResponse[]>(`/folders/${folderId}/transform`, {
+    method: 'POST',
+    body: JSON.stringify({
+      style_id: styleId || null,
+    }),
+  });
+}
+
 /**
  * Connect to SSE real-time updates for a job.
  * Closes stream on terminal state and returns unsubscribe callback.
