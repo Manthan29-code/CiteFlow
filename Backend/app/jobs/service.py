@@ -556,14 +556,24 @@ class JobService:
         from citegen.latex.style_engine import format_bibitem_with_style
         from citegen.latex.citation_keys import generate_base_citation_key
         from citegen.metadata.models import ArticleMetadata
+        from citegen.api import render_single_record
 
         bibitems: List[str] = []
+        needs_commit = False
         for j in succeeded_jobs:
             if template and j.result_metadata:
                 meta = ArticleMetadata(**j.result_metadata)
                 key = generate_base_citation_key(meta)
                 item = format_bibitem_with_style(meta, template, citation_key=key)
                 bibitems.append(item)
+
+                # Unify individual job in DB to this style
+                if j.style_id != style_id:
+                    j.style_id = style_id
+                    j.result_tex = render_single_record(meta, template=template, standalone=(j.tex_mode == "standalone"))
+                    j.updated_at = utc_now()
+                    db.add(j)
+                    needs_commit = True
             elif j.result_tex:
                 # Extract the \bibitem from existing result_tex
                 match = re.search(r"(\\bibitem\{[^}]+\}.*?)(?=\\end\{thebibliography\}|\Z)", j.result_tex, re.DOTALL)
@@ -571,6 +581,12 @@ class JobService:
                     bibitems.append(match.group(1).strip())
                 else:
                     bibitems.append(j.result_tex.strip())
+
+        if needs_commit:
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
 
         # Construct grouped document with separate thebibliography blocks
         blocks = [f"\\begin{{thebibliography}}{{99}}\n{b}\n\\end{{thebibliography}}" for b in bibitems]

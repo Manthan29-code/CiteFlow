@@ -77,7 +77,7 @@ def upgrade() -> None:
             (
                 '00000000-0000-0000-0000-000000000001',
                 NULL,
-                'IOP (Default)',
+                'IOP',
                 'iop-default',
                 $$\bibitem{citation key} authors year \textit{journal abbreviation} \href{doi url}{\textbf{volume} locator}.$$,
                 true,

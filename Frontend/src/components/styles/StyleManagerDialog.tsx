@@ -454,11 +454,6 @@ export const StyleManagerDialog: React.FC = () => {
                                 Custom
                               </span>
                             )}
-                            {isSelected && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-brand text-white">
-                                Active Default
-                              </span>
-                            )}
                           </div>
                           <p className="font-mono text-[11px] text-charcoal/60 line-clamp-2 bg-cream-100 p-2 rounded-lg border border-border-light/60 mt-1 select-all">
                             {style.template}

@@ -365,7 +365,6 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
             <thead className="bg-cream-100/80 sticky top-0 z-10 border-b border-border-light text-[10px] font-mono uppercase tracking-wider text-charcoal/60">
               <tr>
                 <th className="py-2.5 px-3 font-semibold">Variable Name</th>
-                <th className="py-2.5 px-3 font-semibold">Description &amp; Rules</th>
                 <th className="py-2.5 px-3 font-semibold">Example Output</th>
                 <th className="py-2.5 px-3 text-right font-semibold">Action</th>
               </tr>
@@ -373,7 +372,7 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
             <tbody className="divide-y divide-border-light/60">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-charcoal/50 font-mono text-xs">
+                  <td colSpan={3} className="py-8 text-center text-charcoal/50 font-mono text-xs">
                     No variables matched your search query.
                   </td>
                 </tr>
@@ -392,25 +391,9 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                         </div>
                       </td>
 
-                      {/* Description & Fallback */}
-                      <td className="py-2.5 px-3 align-top max-w-[280px]">
-                        <div className="font-semibold text-charcoal-900 text-xs mb-0.5">
-                          {item.name}
-                        </div>
-                        <div className="text-charcoal/70 text-[11px] leading-relaxed">
-                          {item.description}
-                        </div>
-                        {item.fallback && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-mono text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                            <Info className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span>{item.fallback}</span>
-                          </div>
-                        )}
-                      </td>
-
                       {/* Example Value */}
-                      <td className="py-2.5 px-3 align-top max-w-[260px]">
-                        <div className="p-1.5 rounded-lg bg-charcoal-900 text-cream font-mono text-[11px] leading-relaxed break-all select-all">
+                      <td className="py-2.5 px-3 align-top">
+                        <div className="p-1.5 rounded-lg bg-charcoal-900 text-cream font-mono text-[11px] leading-relaxed break-all select-all max-w-[420px]">
                           {item.example}
                         </div>
                       </td>
@@ -481,18 +464,6 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                     {isCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                     <span>{isCopied ? 'Copied' : 'Copy'}</span>
                   </button>
-                </div>
-
-                <div>
-                  <div className="font-semibold text-charcoal-900 text-xs">{item.name}</div>
-                  <div className="text-charcoal/70 text-[11px] mt-0.5 leading-relaxed">
-                    {item.description}
-                  </div>
-                  {item.fallback && (
-                    <div className="mt-1 text-[10px] font-mono text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
-                      {item.fallback}
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-1.5 rounded-lg bg-charcoal-900 text-cream font-mono text-[10px] break-all">

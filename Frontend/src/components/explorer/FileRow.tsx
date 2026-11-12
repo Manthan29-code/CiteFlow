@@ -164,19 +164,12 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
           <span className="text-[11px] font-mono text-charcoal/40 sm:hidden">
             {isFolder ? 'Folder' : formatBytes(file!.size_bytes)}
           </span>
-          {!isFolder && job && (
-            <div className="flex items-center gap-2 mt-1 sm:hidden">
-              <StatusBadge job={job} size="sm" />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  dispatch(openJobDrawer(job.id));
-                }}
-                className="text-[11px] font-mono text-indigo-brand font-semibold underline hover:text-indigo-hover"
-              >
-                Pipeline
-              </button>
+          {!isFolder && (
+            <div className="flex items-center gap-1.5 mt-1 sm:hidden">
+              {job && <StatusBadge job={job} size="sm" />}
+              {(!job || ['succeeded', 'unresolved', 'failed', 'canceled', 'expired'].includes(job.status)) && (
+                <GenerateButton fileId={file!.id} fileName={file!.name} iconOnly={true} />
+              )}
             </div>
           )}
         </div>

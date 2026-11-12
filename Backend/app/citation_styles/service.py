@@ -51,7 +51,7 @@ class CitationStyleService:
         result = await db.execute(stmt)
         styles = list(result.scalars().all())
 
-        # Auto-sync built-in presets to clean lowercase syntax if older <TAG> format was present
+        # Auto-sync built-in presets to clean lowercase syntax and rename IOP (Default) -> IOP
         needs_commit = False
         for s in styles:
             if s.is_builtin and s.slug in BUILTIN_PRESET_TEMPLATES:
@@ -61,6 +61,11 @@ class CitationStyleService:
                     s.updated_at = utc_now()
                     db.add(s)
                     needs_commit = True
+            if s.is_builtin and s.slug == "iop-default" and s.name != "IOP":
+                s.name = "IOP"
+                s.updated_at = utc_now()
+                db.add(s)
+                needs_commit = True
 
         if needs_commit:
             try:

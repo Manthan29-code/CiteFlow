@@ -13,7 +13,7 @@ export const GroupedTexPreviewDialog: React.FC = () => {
   const dispatch = useAppDispatch();
   const folderId = useAppSelector((state) => state.jobs.activeGroupedTexFolderId);
   const currentFolder = useAppSelector((state) => state.explorer.folderData?.folder);
-  const { styles } = useAppSelector((state) => state.styles);
+  const { styles, selectedStyleId } = useAppSelector((state) => state.styles);
 
   const [texContent, setTexContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -45,24 +45,35 @@ export const GroupedTexPreviewDialog: React.FC = () => {
     if (folderId) {
       setIsLoading(true);
       setError(null);
-      downloadFolderTex(folderId)
-        .then((content) => {
+
+      const syncAndDownload = async () => {
+        try {
+          if (selectedStyleId) {
+            // Unify all folder jobs to the globally selected style in DB & Redux
+            const updatedJobs = await transformFolderStyle(folderId, selectedStyleId);
+            if (!ignore) {
+              dispatch(setJobs(updatedJobs));
+            }
+          }
+          const content = await downloadFolderTex(folderId, selectedStyleId);
           if (!ignore) {
             setTexContent(content);
             setIsLoading(false);
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           if (!ignore) {
             setError(err instanceof Error ? err.message : 'Failed to retrieve grouped .tex document');
             setIsLoading(false);
           }
-        });
+        }
+      };
+
+      syncAndDownload();
     }
     return () => {
       ignore = true;
     };
-  }, [folderId]);
+  }, [folderId, selectedStyleId, dispatch]);
 
   const handleClose = () => {
     dispatch(closeGroupedTexModal());

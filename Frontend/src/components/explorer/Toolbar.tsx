@@ -1,9 +1,9 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { FolderPlus, Upload, Search, LayoutList, LayoutGrid, X, Sparkles, Loader2, FileText } from 'lucide-react';
+import { FolderPlus, Upload, Search, X, Sparkles, Loader2, FileText } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
-import { setSearchQuery, setViewMode } from '@/store/slices/explorerSlice';
-import { openJobDrawer, setJobs, openGroupedTexModal } from '@/store/slices/jobsSlice';
+import { setSearchQuery } from '@/store/slices/explorerSlice';
+import { setJobs, openGroupedTexModal } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
 import { StyleSelectorDropdown } from '@/components/styles/StyleSelectorDropdown';
@@ -17,7 +17,7 @@ export const Toolbar: React.FC = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { searchQuery, viewMode, folderData } = useAppSelector((state) => state.explorer);
+  const { searchQuery, folderData } = useAppSelector((state) => state.explorer);
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
   const jobsByFileId = useAppSelector((state) => state.jobs.jobsByFileId);
   const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
@@ -32,18 +32,6 @@ export const Toolbar: React.FC = () => {
   const succeededCount = useMemo(() => {
     return pdfFiles.filter((f) => jobsByFileId[f.id]?.status === 'succeeded').length;
   }, [pdfFiles, jobsByFileId]);
-
-  // Find active or recent job for easy re-opening
-  const activeJob = React.useMemo(
-    () =>
-      Object.values(jobsById).find((j) =>
-        ['queued', 'running', 'needs_title_confirmation', 'needs_review'].includes(j.status)
-      ) ||
-      Object.values(jobsById).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )[0],
-    [jobsById]
-  );
 
   const totalItems = (folderData?.folders.length || 0) + (folderData?.files.length || 0);
 
@@ -197,20 +185,7 @@ export const Toolbar: React.FC = () => {
           </Button>
         )}
 
-        {activeJob && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => dispatch(openJobDrawer(activeJob.id))}
-            className="gap-1.5 text-charcoal/60 hover:text-indigo-brand"
-            title="Open Citation Pipeline details"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="text-xs">Pipeline</span>
-          </Button>
-        )}
-
-        {/* Style Selector Dropdown placed immediately to the right of Pipeline */}
+        {/* Style Selector Dropdown */}
         <StyleSelectorDropdown />
 
         <input
@@ -224,7 +199,7 @@ export const Toolbar: React.FC = () => {
         />
       </div>
 
-      {/* Right Controls: Search, View Switcher, Total count */}
+      {/* Right Controls: Search & Total count */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[140px] sm:w-64">
@@ -245,32 +220,6 @@ export const Toolbar: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="flex items-center p-0.5 rounded-xl border border-border-light bg-cream-200">
-          <button
-            onClick={() => dispatch(setViewMode('list'))}
-            aria-label="List View"
-            className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'list'
-                ? 'bg-white text-indigo-brand shadow-xs'
-                : 'text-charcoal/50 hover:text-charcoal'
-            }`}
-          >
-            <LayoutList className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => dispatch(setViewMode('grid'))}
-            aria-label="Grid View"
-            className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'grid'
-                ? 'bg-white text-indigo-brand shadow-xs'
-                : 'text-charcoal/50 hover:text-charcoal'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Items Count Badge */}

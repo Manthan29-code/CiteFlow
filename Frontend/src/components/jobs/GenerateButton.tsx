@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ChevronDown, Check } from 'lucide-react';
+import { FileText, ChevronDown, Check, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setJob, setStartingJob, openJobDrawer } from '@/store/slices/jobsSlice';
 import { addToast } from '@/store/slices/uiSlice';
@@ -13,6 +13,7 @@ export interface GenerateButtonProps {
   fileName: string;
   disabled?: boolean;
   className?: string;
+  iconOnly?: boolean;
 }
 
 export const GenerateButton: React.FC<GenerateButtonProps> = ({
@@ -20,6 +21,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
   fileName,
   disabled = false,
   className,
+  iconOnly = false,
 }) => {
   const dispatch = useAppDispatch();
   const isStarting = useAppSelector((state) => state.jobs.isStartingJobByFileId[fileId] || false);
@@ -89,6 +91,30 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
     }
   };
 
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={handleStartJob}
+        disabled={disabled || isStarting}
+        title="Generate .tex citation"
+        aria-label="Generate citation"
+        className={cn(
+          'inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-brand text-white shadow-xs transition-all',
+          'hover:bg-indigo-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand',
+          className
+        )}
+      >
+        {isStarting ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <FileText className="w-3.5 h-3.5" />
+        )}
+      </button>
+    );
+  }
+
   return (
     <div
       className={cn('relative inline-flex items-stretch h-8 rounded-xl bg-indigo-brand shadow-xs', className)}
@@ -107,9 +133,9 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand focus-visible:ring-offset-1'
         )}
       >
-        <Sparkles className={cn('w-3.5 h-3.5', isStarting && 'animate-spin')} />
-        <span className="hidden xs:inline">
-          {isStarting ? 'Starting...' : 'Generate .tex'}
+        <FileText className={cn('w-3.5 h-3.5 shrink-0', isStarting && 'animate-pulse')} />
+        <span className="font-mono text-xs font-semibold">
+          {isStarting ? 'Starting...' : 'Generate'}
         </span>
       </button>
 
