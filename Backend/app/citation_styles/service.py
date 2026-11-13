@@ -35,25 +35,35 @@ class CitationStyleService:
     async def list_styles(cls, db: AsyncSession, owner_id: UUID) -> List[CitationStyle]:
         """
         Lists all styles accessible to the user:
-        built-in system styles and custom styles owned by owner_id.
-        Automatically upgrades built-in style templates to the canonical lowercase format if needed.
+        - built-in system styles (excluding any that the user has deleted or overridden)
+        - custom styles owned by owner_id (excluding tombstones)
         """
-        stmt = (
+        # 1. Fetch user-owned styles
+        user_stmt = select(CitationStyle).where(CitationStyle.owner_id == owner_id)
+        user_records = list((await db.execute(user_stmt)).scalars().all())
+
+        deleted_slugs = {
+            s.slug.replace("deleted:", "")
+            for s in user_records
+            if s.slug.startswith("deleted:")
+        }
+        active_user_styles = [
+            s for s in user_records
+            if not s.slug.startswith("deleted:")
+        ]
+        user_slugs = {s.slug for s in active_user_styles}
+
+        # 2. Fetch system built-in styles
+        builtin_stmt = (
             select(CitationStyle)
-            .where(
-                or_(
-                    CitationStyle.is_builtin.is_(True),
-                    CitationStyle.owner_id == owner_id,
-                )
-            )
-            .order_by(CitationStyle.is_builtin.desc(), CitationStyle.created_at.asc())
+            .where(CitationStyle.is_builtin.is_(True))
+            .order_by(CitationStyle.created_at.asc())
         )
-        result = await db.execute(stmt)
-        styles = list(result.scalars().all())
+        builtin_records = list((await db.execute(builtin_stmt)).scalars().all())
 
         # Auto-sync built-in presets only for the core IOP default style
         needs_commit = False
-        for s in styles:
+        for s in builtin_records:
             if s.slug == "iop-default":
                 canonical = BUILTIN_PRESET_TEMPLATES["iop-default"]
                 if s.template != canonical:
@@ -73,11 +83,21 @@ class CitationStyleService:
             except Exception:
                 await db.rollback()
 
-        return styles
+        # 3. Filter built-in styles: exclude deleted or overridden ones
+        visible_builtins = [
+            s for s in builtin_records
+            if s.slug not in deleted_slugs and s.slug not in user_slugs
+        ]
+
+        # Put IOP first, then remaining built-ins, then custom styles
+        iop_styles = [s for s in visible_builtins if s.slug == "iop-default"]
+        other_builtins = [s for s in visible_builtins if s.slug != "iop-default"]
+
+        return iop_styles + other_builtins + active_user_styles
 
     @classmethod
     async def get_style(cls, db: AsyncSession, owner_id: UUID, style_id: UUID) -> CitationStyle:
-        """Fetches a citation style by ID ensuring user has access."""
+        """Fetches a citation style by ID ensuring user has access and hasn't deleted it."""
         stmt = select(CitationStyle).where(
             CitationStyle.id == style_id,
             or_(
@@ -92,6 +112,27 @@ class CitationStyleService:
                 code="style_not_found",
                 message=f"Citation style '{style_id}' not found.",
             )
+
+        if style.slug.startswith("deleted:"):
+            raise AppError(
+                status_code=404,
+                code="style_not_found",
+                message=f"Citation style '{style_id}' not found.",
+            )
+
+        # Check if user deleted this built-in style
+        if style.is_builtin:
+            tombstone_stmt = select(CitationStyle).where(
+                CitationStyle.owner_id == owner_id,
+                CitationStyle.slug == f"deleted:{style.slug}",
+            )
+            if (await db.execute(tombstone_stmt)).scalar_one_or_none():
+                raise AppError(
+                    status_code=404,
+                    code="style_not_found",
+                    message=f"Citation style '{style_id}' not found.",
+                )
+
         return style
 
     @classmethod
@@ -148,7 +189,12 @@ class CitationStyleService:
         style_id: UUID,
         data: CitationStyleUpdate,
     ) -> CitationStyle:
-        """Updates an existing custom citation style. Built-in styles cannot be edited."""
+        """
+        Updates a citation style for this user.
+        - Default IOP cannot be modified.
+        - Built-in styles (IEEE, AMA) are forked into user-owned styles so other users are unaffected.
+        - Custom styles are modified directly.
+        """
         stmt = select(CitationStyle).where(CitationStyle.id == style_id)
         style = (await db.execute(stmt)).scalar_one_or_none()
 
@@ -182,26 +228,54 @@ class CitationStyleService:
                     code="invalid_template",
                     message=f"Invalid citation template: {'; '.join(errors)}",
                 )
-            style.template = data.template.strip()
 
-        # Update name if provided
-        if data.name is not None and data.name.strip():
-            new_name = data.name.strip()
-            # Check unique name
-            existing_stmt = select(CitationStyle).where(
-                CitationStyle.owner_id == owner_id,
-                CitationStyle.name.ilike(new_name),
-                CitationStyle.id != style_id,
+        new_name = data.name.strip() if data.name is not None and data.name.strip() else style.name
+        new_template = data.template.strip() if data.template is not None else style.template
+
+        # Check unique name for this user
+        existing_stmt = select(CitationStyle).where(
+            CitationStyle.owner_id == owner_id,
+            CitationStyle.name.ilike(new_name),
+            CitationStyle.id != style_id,
+            ~CitationStyle.slug.startswith("deleted:"),
+        )
+        if (await db.execute(existing_stmt)).scalar_one_or_none():
+            raise AppError(
+                status_code=409,
+                code="style_name_exists",
+                message=f"A citation style named '{new_name}' already exists in your library.",
             )
-            if (await db.execute(existing_stmt)).scalar_one_or_none():
-                raise AppError(
-                    status_code=409,
-                    code="style_name_exists",
-                    message=f"A citation style named '{new_name}' already exists in your library.",
-                )
-            style.name = new_name
-            style.slug = slugify(new_name)
 
+        # Case 1: Editing a shared built-in style -> Fork as a user-owned style (Copy-On-Write)
+        if style.owner_id is None:
+            forked_style = CitationStyle(
+                owner_id=owner_id,
+                name=new_name,
+                slug=style.slug,
+                template=new_template,
+                is_builtin=False,
+                created_at=utc_now(),
+                updated_at=utc_now(),
+            )
+            db.add(forked_style)
+            await db.flush()
+
+            # Update this user's jobs referencing the old built-in style
+            from app.db.models.job import Job
+            from sqlalchemy import update
+            await db.execute(
+                update(Job)
+                .where(Job.owner_id == owner_id, Job.style_id == style.id)
+                .values(style_id=forked_style.id)
+            )
+
+            await db.commit()
+            await db.refresh(forked_style)
+            return forked_style
+
+        # Case 2: Editing user's own style
+        style.name = new_name
+        style.template = new_template
         style.updated_at = utc_now()
         await db.commit()
         await db.refresh(style)
@@ -209,7 +283,12 @@ class CitationStyleService:
 
     @classmethod
     async def delete_style(cls, db: AsyncSession, owner_id: UUID, style_id: UUID) -> None:
-        """Deletes a custom citation style. Built-in styles cannot be deleted."""
+        """
+        Deletes a citation style for this user.
+        - Default IOP cannot be deleted.
+        - For built-in styles (IEEE, AMA), marks a tombstone for this user so other users are unaffected.
+        - For custom styles, deletes the user's record.
+        """
         stmt = select(CitationStyle).where(CitationStyle.id == style_id)
         style = (await db.execute(stmt)).scalar_one_or_none()
 
@@ -234,14 +313,45 @@ class CitationStyleService:
                 message=f"Citation style '{style_id}' not found.",
             )
 
-        # Unlink any jobs referencing this style before deleting
         from app.db.models.job import Job
         from sqlalchemy import update
 
+        # Unlink only this user's jobs referencing this style
         await db.execute(
-            update(Job).where(Job.style_id == style_id).values(style_id=None)
+            update(Job)
+            .where(Job.owner_id == owner_id, Job.style_id == style_id)
+            .values(style_id=None)
         )
 
+        # Case 1: Built-in style -> Do NOT delete shared row! Record tombstone for this user only.
+        if style.owner_id is None:
+            tombstone = CitationStyle(
+                owner_id=owner_id,
+                name=style.name,
+                slug=f"deleted:{style.slug}",
+                template="deleted",
+                is_builtin=False,
+                created_at=utc_now(),
+                updated_at=utc_now(),
+            )
+            db.add(tombstone)
+            await db.commit()
+            return
+
+        # Case 2: User-owned style that had overridden a built-in -> Delete user copy AND record tombstone
+        if style.slug in BUILTIN_PRESET_TEMPLATES:
+            tombstone = CitationStyle(
+                owner_id=owner_id,
+                name=style.name,
+                slug=f"deleted:{style.slug}",
+                template="deleted",
+                is_builtin=False,
+                created_at=utc_now(),
+                updated_at=utc_now(),
+            )
+            db.add(tombstone)
+
+        # Delete the user's custom row
         await db.delete(style)
         await db.commit()
 

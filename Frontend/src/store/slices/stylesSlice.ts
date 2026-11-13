@@ -146,9 +146,17 @@ export const stylesSlice = createSlice({
 
       // editStyle
       .addCase(editStyle.fulfilled, (state, action) => {
-        const index = state.styles.findIndex((s) => s.id === action.payload.id);
+        const index = state.styles.findIndex(
+          (s) => s.id === action.payload.id || (action.payload.slug && s.slug === action.payload.slug)
+        );
         if (index !== -1) {
+          const oldId = state.styles[index].id;
           state.styles[index] = action.payload;
+          if (state.selectedStyleId === oldId) {
+            state.selectedStyleId = action.payload.id;
+          }
+        } else {
+          state.styles.push(action.payload);
         }
       })
 
