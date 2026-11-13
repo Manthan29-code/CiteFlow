@@ -163,6 +163,9 @@ export const StyleManagerDialog: React.FC = () => {
     };
   }, [template, mode, allowedFields, truncateAuthors]);
 
+  const isProtectedStyle = (style: CitationStyle) =>
+    style.slug === 'iop-default' || style.name.trim().toLowerCase() === 'iop';
+
   const handleOpenCreate = (baseTemplate?: string, baseName?: string) => {
     setEditingStyleId(null);
     setName(baseName ? `${baseName} (Copy)` : '');
@@ -175,7 +178,7 @@ export const StyleManagerDialog: React.FC = () => {
   };
 
   const handleOpenEdit = (style: CitationStyle) => {
-    if (style.is_builtin) return;
+    if (isProtectedStyle(style)) return;
     setEditingStyleId(style.id);
     setName(style.name);
     setTruncateAuthors(!style.template.includes('% truncate_authors: false'));
@@ -418,7 +421,7 @@ export const StyleManagerDialog: React.FC = () => {
             </div>
 
             {/* Styles Cards List */}
-            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[64vh] overflow-y-auto pr-1 pb-2">
               {isLoading && styles.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-charcoal/50">
                   <Loader2 className="w-6 h-6 animate-spin text-indigo-brand mb-2" />
@@ -445,15 +448,6 @@ export const StyleManagerDialog: React.FC = () => {
                             <span className="font-semibold text-charcoal-900 text-sm truncate">
                               {style.name}
                             </span>
-                            {style.is_builtin ? (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-cream-200 text-charcoal/60 border border-border-light">
-                                Built-in
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Custom
-                              </span>
-                            )}
                           </div>
                           <p className="font-mono text-[11px] text-charcoal/60 line-clamp-2 bg-cream-100 p-2 rounded-lg border border-border-light/60 mt-1 select-all">
                             {style.template}
@@ -461,16 +455,17 @@ export const StyleManagerDialog: React.FC = () => {
                         </div>
 
                         {/* Style Actions */}
-                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                           <button
                             type="button"
                             onClick={() => dispatch(setSelectedStyleId(style.id))}
-                            title="Set as active generation style"
+                            title={isSelected ? 'Active style' : 'Set as active generation style'}
+                            aria-label={isSelected ? 'Active style' : 'Select style'}
                             className={cn(
-                              'px-2 py-1 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer',
+                              'px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer',
                               isSelected
-                                ? 'bg-indigo-brand text-white'
-                                : 'text-charcoal/60 hover:text-indigo-brand hover:bg-cream-200'
+                                ? 'bg-indigo-brand text-white shadow-2xs'
+                                : 'text-charcoal/70 bg-white border border-border-light hover:text-indigo-brand hover:border-indigo-200 hover:bg-cream-200'
                             )}
                           >
                             {isSelected ? 'Active' : 'Select'}
@@ -479,46 +474,53 @@ export const StyleManagerDialog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenCreate(style.template, style.name)}
-                            title="Duplicate this style template"
-                            className="p-1.5 rounded-lg text-charcoal/40 hover:text-charcoal hover:bg-cream-200 transition-colors"
+                            title="Duplicate style"
+                            aria-label="Duplicate style"
+                            className="p-1.5 rounded-lg text-charcoal/60 hover:text-charcoal bg-white hover:bg-cream-200 border border-border-light transition-colors cursor-pointer shadow-2xs"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
 
-                          {!style.is_builtin && (
+                          {!isProtectedStyle(style) && (
                             <>
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(style)}
-                                title="Edit this style"
-                                className="p-1.5 rounded-lg text-charcoal/40 hover:text-indigo-brand hover:bg-cream-200 transition-colors"
+                                title="Edit style"
+                                aria-label="Edit style"
+                                className="p-1.5 rounded-lg text-indigo-brand bg-indigo-50/90 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer shadow-2xs"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
 
                               {isConfirmingDelete ? (
-                                <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-1 bg-red-50 px-1.5 py-1 rounded-lg border border-red-200 animate-in fade-in duration-150">
                                   <button
                                     type="button"
                                     onClick={() => handleDelete(style.id, style.name)}
-                                    className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-600 text-white hover:bg-red-700"
+                                    title="Confirm delete"
+                                    aria-label="Confirm delete"
+                                    className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setDeleteConfirmId(null)}
-                                    className="px-1.5 py-0.5 rounded text-[10px] font-mono text-charcoal/60 hover:text-charcoal"
+                                    title="Cancel"
+                                    aria-label="Cancel"
+                                    className="px-1 py-0.5 rounded text-[10px] font-mono text-charcoal/60 hover:text-charcoal cursor-pointer"
                                   >
-                                    Cancel
+                                    ✕
                                   </button>
                                 </div>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => setDeleteConfirmId(style.id)}
-                                  title="Delete custom style"
-                                  className="p-1.5 rounded-lg text-charcoal/40 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="Delete style"
+                                  aria-label="Delete style"
+                                  className="p-1.5 rounded-lg text-red-600 bg-red-50/90 border border-red-200 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer shadow-2xs"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -700,25 +702,70 @@ export const StyleManagerDialog: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-light">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMode('list')}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving || validationErrors.length > 0 || !name.trim()}
-                className="gap-1.5"
-              >
-                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>{editingStyleId ? 'Save Changes' : 'Create Style'}</span>
-              </Button>
+            <div className="flex items-center justify-between pt-2 border-t border-border-light">
+              {editingStyleId && !isProtectedStyle(styles.find((s) => s.id === editingStyleId) || ({} as CitationStyle)) ? (
+                deleteConfirmId === editingStyleId ? (
+                  <div className="flex items-center gap-1.5 bg-red-50 px-2.5 py-1 rounded-xl border border-red-200">
+                    <span className="text-xs font-mono font-semibold text-red-700">Delete this style?</span>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        const styleToDelete = styles.find((s) => s.id === editingStyleId);
+                        if (styleToDelete) {
+                          handleDelete(styleToDelete.id, styleToDelete.name);
+                          setMode('list');
+                        }
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white h-7 px-2 text-xs"
+                    >
+                      Confirm
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmId(null)}
+                      className="h-7 px-2 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setDeleteConfirmId(editingStyleId)}
+                    className="gap-1.5 text-red-600 border-red-200 bg-red-50/60 hover:bg-red-100/80 hover:text-red-700"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Style</span>
+                  </Button>
+                )
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMode('list')}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={isSaving || validationErrors.length > 0 || !name.trim()}
+                  className="gap-1.5"
+                >
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{editingStyleId ? 'Save Changes' : 'Create Style'}</span>
+                </Button>
+              </div>
             </div>
           </div>
         )}

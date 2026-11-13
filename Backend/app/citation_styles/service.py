@@ -51,21 +51,21 @@ class CitationStyleService:
         result = await db.execute(stmt)
         styles = list(result.scalars().all())
 
-        # Auto-sync built-in presets to clean lowercase syntax and rename IOP (Default) -> IOP
+        # Auto-sync built-in presets only for the core IOP default style
         needs_commit = False
         for s in styles:
-            if s.is_builtin and s.slug in BUILTIN_PRESET_TEMPLATES:
-                canonical = BUILTIN_PRESET_TEMPLATES[s.slug]
+            if s.slug == "iop-default":
+                canonical = BUILTIN_PRESET_TEMPLATES["iop-default"]
                 if s.template != canonical:
                     s.template = canonical
                     s.updated_at = utc_now()
                     db.add(s)
                     needs_commit = True
-            if s.is_builtin and s.slug == "iop-default" and s.name != "IOP":
-                s.name = "IOP"
-                s.updated_at = utc_now()
-                db.add(s)
-                needs_commit = True
+                if s.name != "IOP":
+                    s.name = "IOP"
+                    s.updated_at = utc_now()
+                    db.add(s)
+                    needs_commit = True
 
         if needs_commit:
             try:
@@ -159,14 +159,14 @@ class CitationStyleService:
                 message=f"Citation style '{style_id}' not found.",
             )
 
-        if style.is_builtin:
+        if style.slug == "iop-default" or style.name.strip().lower() == "iop":
             raise AppError(
                 status_code=403,
-                code="cannot_modify_builtin_style",
-                message="Built-in system citation styles cannot be edited.",
+                code="cannot_modify_default_style",
+                message="The default IOP citation style cannot be modified.",
             )
 
-        if style.owner_id != owner_id:
+        if style.owner_id is not None and style.owner_id != owner_id:
             raise AppError(
                 status_code=404,
                 code="style_not_found",
@@ -220,19 +220,27 @@ class CitationStyleService:
                 message=f"Citation style '{style_id}' not found.",
             )
 
-        if style.is_builtin:
+        if style.slug == "iop-default" or style.name.strip().lower() == "iop":
             raise AppError(
                 status_code=403,
-                code="cannot_delete_builtin_style",
-                message="Built-in system citation styles cannot be deleted.",
+                code="cannot_delete_default_style",
+                message="The default IOP citation style cannot be deleted.",
             )
 
-        if style.owner_id != owner_id:
+        if style.owner_id is not None and style.owner_id != owner_id:
             raise AppError(
                 status_code=404,
                 code="style_not_found",
                 message=f"Citation style '{style_id}' not found.",
             )
+
+        # Unlink any jobs referencing this style before deleting
+        from app.db.models.job import Job
+        from sqlalchemy import update
+
+        await db.execute(
+            update(Job).where(Job.style_id == style_id).values(style_id=None)
+        )
 
         await db.delete(style)
         await db.commit()
