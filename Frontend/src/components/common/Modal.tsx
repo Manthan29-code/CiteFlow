@@ -104,7 +104,7 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
 
             {/* Body */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 scrollbar-none">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
               {children}
             </div>
           </motion.div>

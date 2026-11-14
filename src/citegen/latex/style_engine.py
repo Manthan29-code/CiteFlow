@@ -9,6 +9,10 @@ from citegen.metadata.models import ArticleMetadata, Author
 LOWERCASE_VARIABLES = [
     "citation key",
     "key",
+    "firstname",
+    "first name",
+    "surname",
+    "middle name",
     "authors last first .",
     "authors last first.",
     "authors last first",
@@ -16,6 +20,7 @@ LOWERCASE_VARIABLES = [
     "authors first last",
     "authors",
     "title",
+    "journal abbr",
     "journal abbreviation",
     "journal",
     "year",
@@ -216,14 +221,75 @@ def format_authors_by_variant(
             return f"{all_except_last} and {formatted[-1]}"
 
 
+def format_author_by_template_tokens(
+    author: Author,
+    order: str,  # "FIRST_LAST" or "LAST_FIRST"
+    dotted: bool,
+    has_middle: bool,
+) -> str:
+    """Formats an individual Author using fine-grained component rules."""
+    if not author.surname:
+        return escape_latex(author.original_name or "Anonymous")
+
+    surname_esc = escape_latex(author.surname)
+    given_inits = extract_initials_list(author.given_name or "")
+    middle_inits = extract_initials_list(author.middle_name or "")
+    all_inits = given_inits + (middle_inits if has_middle else [])
+
+    if not all_inits:
+        return surname_esc
+
+    if order == "FIRST_LAST":
+        init_str = " ".join(f"{i}." if dotted else i for i in all_inits)
+        return f"{init_str} {surname_esc}".strip()
+    else:
+        if dotted:
+            init_str = " ".join(f"{i}." for i in all_inits)
+            return f"{surname_esc} {init_str}".strip()
+        else:
+            # Undotted compressed initials (e.g. Ghosh S or Chattopadhyay PK)
+            init_str = "".join(all_inits)
+            return f"{surname_esc} {init_str}".strip()
+
+
+def format_authors_from_components(
+    authors: List[Author],
+    order: str,
+    dotted: bool,
+    has_middle: bool,
+    and_before_last: bool,
+    truncate_over_7: bool,
+) -> str:
+    """Formats the list of authors based on component variables and builder flags."""
+    if not authors:
+        return "Anonymous"
+
+    if truncate_over_7 and len(authors) > 7:
+        first = format_author_by_template_tokens(authors[0], order, dotted, has_middle)
+        return f"{first} \\textit{{et al.}}"
+
+    formatted = [format_author_by_template_tokens(a, order, dotted, has_middle) for a in authors]
+    if len(formatted) == 1:
+        return formatted[0]
+
+    if and_before_last:
+        if len(formatted) == 2:
+            return f"{formatted[0]} and {formatted[1]}"
+        else:
+            all_except_last = ", ".join(formatted[:-1])
+            return f"{all_except_last}, and {formatted[-1]}"
+    else:
+        return ", ".join(formatted)
+
+
 def clean_latex_punctuation(text: str) -> str:
     """
     Cleans up empty parentheses, dangling punctuation, directives, and extra whitespace
     caused by omitted metadata fields.
     """
-    # Strip any comment directives like % truncate_authors: true/false
-    text = re.sub(r"(?m)^\s*%\s*(?:truncate_authors|no_et_al|et_al)[^\n]*\n?", "", text)
-    text = re.sub(r"\s*%\s*(?:truncate_authors|no_et_al|et_al)[^\n]*", "", text)
+    # Strip any comment directives or builder state comments
+    text = re.sub(r"(?m)^\s*%.*\n?", "", text)
+    text = re.sub(r"\s*%.*", "", text)
 
     # Remove empty parentheses () or brackets []
     text = re.sub(r"\(\s*\)", "", text)
@@ -280,8 +346,62 @@ def format_bibitem_with_style(
     else:
         should_truncate = True
 
-    # 1. Author formatting according to template tag or plain variable
-    if "authors last first ." in lower_tpl:
+    and_before_last = "% and_before_last: true" in lower_tpl
+
+    # 1. Author formatting according to template tag, plain variable, or fine-grained components
+    author_tokens = list(
+        re.finditer(
+            r"(?i)(?:firstname|first\s+name|surname|middle\s+name)",
+            result,
+        )
+    )
+    if len(author_tokens) >= 2:
+        start_pos = author_tokens[0].start()
+        end_pos = author_tokens[-1].end()
+        matched_text = result[start_pos:end_pos]
+        matched_lower = matched_text.lower()
+        first_idx = min(
+            [matched_lower.find(k) for k in ("firstname", "first name") if k in matched_lower] or [999]
+        )
+        last_idx = min(
+            [matched_lower.find("surname")] if "surname" in matched_lower else [999]
+        )
+        order = "FIRST_LAST" if first_idx < last_idx else "LAST_FIRST"
+        dotted = "." in matched_text or "." in lower_tpl[end_pos : end_pos + 2]
+        has_middle = "middle" in matched_lower
+
+        authors_val = format_authors_from_components(
+            authors=meta.authors,
+            order=order,
+            dotted=dotted,
+            has_middle=has_middle,
+            and_before_last=and_before_last,
+            truncate_over_7=should_truncate,
+        )
+        result = result[:start_pos] + authors_val + result[end_pos:]
+    elif len(author_tokens) == 1:
+        t = author_tokens[0]
+        val = t.group(0).lower()
+        if "surname" in val:
+            authors_val = format_authors_from_components(
+                authors=meta.authors,
+                order="LAST_FIRST",
+                dotted=False,
+                has_middle=False,
+                and_before_last=and_before_last,
+                truncate_over_7=should_truncate,
+            )
+        else:
+            authors_val = format_authors_from_components(
+                authors=meta.authors,
+                order="FIRST_LAST",
+                dotted=True,
+                has_middle=False,
+                and_before_last=and_before_last,
+                truncate_over_7=should_truncate,
+            )
+        result = result[:t.start()] + authors_val + result[t.end():]
+    elif "authors last first ." in lower_tpl:
         # Undotted initials with sentence trailing period (space before dot)
         authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate) + "."
         result = re.sub(r"(?i)\bauthors\s+last\s+first\s+\.", lambda _: authors_val, result)
@@ -377,7 +497,8 @@ def format_bibitem_with_style(
 
     # Journal Abbreviation & Journal
     result = re.sub(r"(?i)(?:<journal_abbreviation>|\bjournal\s+abbreviation\b)", lambda _: journal_abbr_val, result)
-    result = re.sub(r"(?i)(?:<journal>|\bjournal\b(?!\s+abbreviation))", lambda _: journal_val, result)
+    result = re.sub(r"(?i)(?:<journal_abbr>|\bjournal\s+abbr\b)", lambda _: journal_abbr_val, result)
+    result = re.sub(r"(?i)(?:<journal>|\bjournal\b(?!\s+(?:abbreviation|abbr)))", lambda _: journal_val, result)
 
     # DOI URL & DOI (do not match .org or : label)
     result = re.sub(r"(?i)(?:<doi_url>|\bdoi\s+url\b)", lambda _: doi_url_clean, result)

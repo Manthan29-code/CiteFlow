@@ -24,6 +24,29 @@ export interface VariableItem {
 }
 
 const VARIABLES: VariableItem[] = [
+  // Fine-grained author metadata variables
+  {
+    tag: 'surname',
+    category: 'author',
+    name: 'Author Surname / Family Name',
+    description: 'Surname of the author(s). In the Visual Builder, combine with firstname to configure author sequence.',
+    example: 'Ghosh',
+  },
+  {
+    tag: 'firstname',
+    category: 'author',
+    name: 'Author Given Name / Initials',
+    description: 'First or given name initials of the author(s).',
+    example: 'S.',
+  },
+  {
+    tag: 'middle name',
+    category: 'author',
+    name: 'Author Middle Name / Initials',
+    description: 'Middle name or middle initials of the author(s).',
+    example: 'K.',
+  },
+
   // Author representations in lowercase
   {
     tag: 'authors last first .',
@@ -95,6 +118,14 @@ const VARIABLES: VariableItem[] = [
     category: 'metadata',
     name: 'ISO Journal Abbreviation',
     description: 'Standard ISO abbreviation for the journal.',
+    fallback: 'Falls back to journal if absent',
+    example: 'J Phys D Appl Phys',
+  },
+  {
+    tag: 'journal abbr',
+    category: 'metadata',
+    name: 'Journal Abbreviation (Compact)',
+    description: 'Compact variable for ISO journal abbreviation.',
     fallback: 'Falls back to journal if absent',
     example: 'J Phys D Appl Phys',
   },

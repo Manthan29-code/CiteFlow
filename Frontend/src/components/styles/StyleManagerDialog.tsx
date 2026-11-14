@@ -1,17 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import {
-  Palette,
   Plus,
   Trash2,
   Edit2,
   Copy,
   Check,
-  AlertCircle,
-  Eye,
-  Sparkles,
-  ChevronRight,
-  ArrowLeft,
   Loader2,
   BookOpen,
 } from 'lucide-react';
@@ -24,17 +17,17 @@ import {
   removeStyle,
   setSelectedStyleId,
 } from '@/store/slices/stylesSlice';
-import { validateCitationTemplate } from '@/api/citationStyles';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { CitationStyle } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { VariablesGuide } from '@/components/styles/VariablesGuide';
+import { VisualTemplateBuilder } from '@/components/styles/VisualTemplateBuilder';
 
 export const StyleManagerDialog: React.FC = () => {
   const dispatch = useAppDispatch();
   const isOpen = useAppSelector((state) => state.ui.isStyleManagerModalOpen);
-  const { styles, selectedStyleId, allowedFields, isLoading } = useAppSelector(
+  const { styles, selectedStyleId, isLoading } = useAppSelector(
     (state) => state.styles
   );
 
@@ -43,21 +36,8 @@ export const StyleManagerDialog: React.FC = () => {
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
   const [template, setTemplate] = useState<string>('');
-  const [truncateAuthors, setTruncateAuthors] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-
-  // Autocomplete state
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
-  const [suggestionQuery, setSuggestionQuery] = useState<string>('');
-  const [suggestionCursorStart, setSuggestionCursorStart] = useState<number>(-1);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(0);
-
-  // Live preview & validation state
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [livePreview, setLivePreview] = useState<string>('');
-  const [isValidating, setIsValidating] = useState<boolean>(false);
 
   // Load styles when modal opens
   useEffect(() => {
@@ -69,111 +49,17 @@ export const StyleManagerDialog: React.FC = () => {
     }
   }, [isOpen, dispatch]);
 
-  // Keep textarea in view when autocomplete opens
-  useEffect(() => {
-    if (showSuggestions && textareaRef.current) {
-      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [showSuggestions]);
-
-  // Handle autocomplete filtering
-  const filteredFields = useMemo(() => {
-    if (!suggestionQuery.trim()) return allowedFields;
-    const q = suggestionQuery.toLowerCase().trim();
-    const starts = allowedFields.filter((f) => f.toLowerCase().startsWith(q));
-    const includes = allowedFields.filter(
-      (f) => !f.toLowerCase().startsWith(q) && f.toLowerCase().includes(q)
-    );
-    return [...starts, ...includes];
-  }, [allowedFields, suggestionQuery]);
-
-  // Live validation & preview debounce
-  useEffect(() => {
-    if (mode !== 'editor') return;
-
-    if (!template.trim()) {
-      setValidationErrors(['Template cannot be empty.']);
-      setLivePreview('');
-      return;
-    }
-
-    // Local variable presence check (case-insensitive)
-    const lowerTemplate = template.toLowerCase();
-    const hasVariable = allowedFields.some((f) => lowerTemplate.includes(f.toLowerCase()));
-    const localErrors: string[] = [];
-
-    if (!hasVariable) {
-      localErrors.push(
-        'Template must contain at least one valid metadata variable (e.g. authors, title, journal, year, doi).'
-      );
-    }
-
-    // If explicit bracketed tags are present, check them
-    const tagMatches = template.match(/<([^>]+)>/g) || [];
-    tagMatches.forEach((rawTag) => {
-      const cleanTag = rawTag.slice(1, -1).trim().toLowerCase();
-      if (!allowedFields.some((f) => f.toLowerCase() === cleanTag)) {
-        localErrors.push(`Unknown bracketed field '${rawTag}'.`);
-      }
-    });
-
-    if (localErrors.length > 0) {
-      setValidationErrors(localErrors);
-      setLivePreview('');
-      return;
-    }
-
-    // Remote backend validation & preview
-    let isCancelled = false;
-    setIsValidating(true);
-    const timer = setTimeout(async () => {
-      try {
-        let previewTemplate = template.trim();
-        if (!truncateAuthors) {
-          if (!previewTemplate.includes('% truncate_authors: false')) {
-            previewTemplate = `${previewTemplate}\n% truncate_authors: false`;
-          }
-        } else {
-          previewTemplate = previewTemplate.replace(/\n?% truncate_authors: false/g, '').trim();
-        }
-
-        const res = await validateCitationTemplate(previewTemplate);
-        if (!isCancelled) {
-          if (res.valid) {
-            setValidationErrors([]);
-            setLivePreview(res.preview || '');
-          } else {
-            setValidationErrors(res.errors);
-            setLivePreview('');
-          }
-        }
-      } catch {
-        if (!isCancelled) {
-          // If network error, still clear errors if local check passed
-          setValidationErrors([]);
-        }
-      } finally {
-        if (!isCancelled) setIsValidating(false);
-      }
-    }, 250);
-
-    return () => {
-      isCancelled = true;
-      clearTimeout(timer);
-    };
-  }, [template, mode, allowedFields, truncateAuthors]);
-
   const isProtectedStyle = (style: CitationStyle) =>
     style.slug === 'iop-default' || style.name.trim().toLowerCase() === 'iop';
 
   const handleOpenCreate = (baseTemplate?: string, baseName?: string) => {
     setEditingStyleId(null);
-    setName(baseName ? `${baseName} (Copy)` : '');
+    const initialName = baseName ? `${baseName} (Copy)` : 'My Custom Style';
+    setName(initialName);
     const initialTpl =
       baseTemplate ||
-      '\\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue):article number. doi:doi.';
-    setTruncateAuthors(!initialTpl.includes('% truncate_authors: false'));
-    setTemplate(initialTpl.replace(/\n?% truncate_authors: false/g, '').trim());
+      '\\bibitem{citation key} firstname . surname , title , \\textit{ journal }, vol. volume , no. issue , Article article number , year . \\href{doi url}{doi url}';
+    setTemplate(initialTpl);
     setMode('editor');
   };
 
@@ -181,8 +67,7 @@ export const StyleManagerDialog: React.FC = () => {
     if (isProtectedStyle(style)) return;
     setEditingStyleId(style.id);
     setName(style.name);
-    setTruncateAuthors(!style.template.includes('% truncate_authors: false'));
-    setTemplate(style.template.replace(/\n?% truncate_authors: false/g, '').trim());
+    setTemplate(style.template);
     setMode('editor');
   };
 
@@ -190,148 +75,26 @@ export const StyleManagerDialog: React.FC = () => {
     dispatch(closeStyleManagerModal());
   };
 
-  // Textarea input & cursor change for autocomplete
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    const cursorPos = e.target.selectionStart;
-    setTemplate(val);
-
-    const textBeforeCursor = val.slice(0, cursorPos);
-
-    // 1. Check if inside an unclosed '<' (legacy support)
-    const lastOpenIndex = textBeforeCursor.lastIndexOf('<');
-    const lastCloseIndex = textBeforeCursor.lastIndexOf('>');
-    if (lastOpenIndex !== -1 && lastOpenIndex > lastCloseIndex) {
-      const query = textBeforeCursor.slice(lastOpenIndex + 1);
-      setShowSuggestions(true);
-      setSuggestionQuery(query);
-      setSuggestionCursorStart(lastOpenIndex);
-      setActiveSuggestionIndex(0);
-      return;
-    }
-
-    // 2. Check if typing a LaTeX macro (e.g. \bibitem, \textit) -> skip
-    if (textBeforeCursor.endsWith('\\') || /\\[a-zA-Z]+$/.test(textBeforeCursor)) {
-      setShowSuggestions(false);
-      return;
-    }
-
-    // 3. Multi-word variable prefix check (case-insensitive)
-    const multiMatch = textBeforeCursor.match(
-      /(?:^|[^a-zA-Z0-9_\\])((?:authors|journal|citation|article|first|doi)\b[^\n\r{}\\;:(),]*)$/i
-    );
-    if (multiMatch) {
-      const candidate = multiMatch[1];
-      const matchPos = textBeforeCursor.lastIndexOf(candidate);
-      const q = candidate.toLowerCase().trim();
-      const hasMatch = allowedFields.some(
-        (f) => f.toLowerCase().startsWith(q) || f.toLowerCase().includes(q)
-      );
-      if (hasMatch && q.length >= 1) {
-        setShowSuggestions(true);
-        setSuggestionQuery(candidate);
-        setSuggestionCursorStart(matchPos);
-        setActiveSuggestionIndex(0);
-        return;
-      }
-    }
-
-    // 4. Single-word token check (case-insensitive)
-    const singleMatch = textBeforeCursor.match(/(?:^|[^a-zA-Z0-9_\\])([a-zA-Z0-9_]+)$/);
-    if (singleMatch) {
-      const candidate = singleMatch[1];
-      const matchPos = textBeforeCursor.lastIndexOf(candidate);
-      const q = candidate.toLowerCase().trim();
-      const hasMatch = allowedFields.some(
-        (f) => f.toLowerCase().startsWith(q) || f.toLowerCase().includes(q)
-      );
-      if (hasMatch && q.length >= 1) {
-        setShowSuggestions(true);
-        setSuggestionQuery(candidate);
-        setSuggestionCursorStart(matchPos);
-        setActiveSuggestionIndex(0);
-        return;
-      }
-    }
-
-    setShowSuggestions(false);
-  };
-
-  const insertTag = (tag: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    let before = '';
-    let after = '';
-
-    if (showSuggestions && suggestionCursorStart !== -1) {
-      before = template.slice(0, suggestionCursorStart);
-      const afterCursor = template.slice(textarea.selectionEnd);
-      // If user typed with '<' and there's an immediate closing '>', skip it
-      after = afterCursor.startsWith('>') ? afterCursor.slice(1) : afterCursor;
-    } else {
-      const pos = textarea.selectionStart || template.length;
-      before = template.slice(0, pos);
-      after = template.slice(pos);
-    }
-
-    const inserted = tag;
-    const newContent = before + inserted + after;
-    setTemplate(newContent);
-    setShowSuggestions(false);
-
-    // Reposition cursor after inserted tag
-    setTimeout(() => {
-      textarea.focus();
-      const newCursor = before.length + inserted.length;
-      textarea.setSelectionRange(newCursor, newCursor);
-    }, 0);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSuggestions || filteredFields.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => (prev + 1) % filteredFields.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => (prev - 1 + filteredFields.length) % filteredFields.length);
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      insertTag(filteredFields[activeSuggestionIndex]);
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false);
-    }
-  };
-
   const handleSave = async () => {
-    if (!name.trim()) {
-      dispatch(addToast({ type: 'error', message: 'Style name cannot be empty.' }));
-      return;
-    }
-    if (validationErrors.length > 0) {
-      dispatch(addToast({ type: 'error', message: 'Please fix template errors before saving.' }));
-      return;
-    }
+    const resolvedName = name.trim() || 'My Custom Style';
 
     setIsSaving(true);
     try {
-      let finalTemplate = template.trim();
-      if (!truncateAuthors) {
-        if (!finalTemplate.includes('% truncate_authors: false')) {
-          finalTemplate = `${finalTemplate}\n% truncate_authors: false`;
-        }
-      } else {
-        finalTemplate = finalTemplate.replace(/\n?% truncate_authors: false/g, '').trim();
-      }
+      const finalTemplate = template.trim();
 
       if (editingStyleId) {
-        await dispatch(editStyle({ id: editingStyleId, data: { name: name.trim(), template: finalTemplate } })).unwrap();
-        dispatch(addToast({ type: 'success', message: `Style "${name}" updated successfully.` }));
+        await dispatch(
+          editStyle({
+            id: editingStyleId,
+            data: { name: resolvedName, template: finalTemplate },
+          })
+        ).unwrap();
+        dispatch(addToast({ type: 'success', message: `Style "${resolvedName}" updated successfully.` }));
       } else {
-        const created = await dispatch(createNewStyle({ name: name.trim(), template: finalTemplate })).unwrap();
-        dispatch(addToast({ type: 'success', message: `Style "${name}" created and selected.` }));
+        await dispatch(
+          createNewStyle({ name: resolvedName, template: finalTemplate })
+        ).unwrap();
+        dispatch(addToast({ type: 'success', message: `Style "${resolvedName}" created and selected.` }));
       }
       setMode('list');
       setEditingStyleId(null);
@@ -369,20 +132,18 @@ export const StyleManagerDialog: React.FC = () => {
         mode === 'guide'
           ? 'Complete reference for author representation variants, bibliographic variables, and fallback rules.'
           : mode === 'editor'
-          ? 'Define your LaTeX \\bibitem template using variables (e.g. authors, title, journal, year, doi).'
+          ? 'Drag variables and text blocks to build your custom citation style.'
           : 'Customize, create, and manage reference bibliography formats.'
       }
-      maxWidth={mode === 'guide' ? '4xl' : '3xl'}
+      maxWidth={mode === 'guide' || mode === 'editor' ? '4xl' : '3xl'}
     >
       <div className="space-y-4">
         {mode === 'guide' ? (
           <VariablesGuide
             onBack={() => setMode(previousMode)}
             backLabel={previousMode === 'editor' ? 'Back to Style Editor' : 'Back to Styles List'}
-            onSelectTag={(tag) => {
-              if (previousMode === 'editor') {
-                insertTag(tag.replace(/[<>]/g, ''));
-              }
+            onSelectTag={() => {
+              // Informational in visual builder
             }}
           />
         ) : mode === 'list' ? (
@@ -449,83 +210,86 @@ export const StyleManagerDialog: React.FC = () => {
                               {style.name}
                             </span>
                           </div>
-                          <p className="font-mono text-[11px] text-charcoal/60 line-clamp-2 bg-cream-100 p-2 rounded-lg border border-border-light/60 mt-1 select-all">
+
+                          <div className="p-2 rounded-lg bg-charcoal-900/5 text-charcoal/70 font-mono text-[11px] leading-relaxed break-all border border-charcoal/10 select-all">
                             {style.template}
-                          </p>
+                          </div>
                         </div>
 
-                        {/* Style Actions */}
+                        {/* Actions */}
                         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setSelectedStyleId(style.id))}
-                            title={isSelected ? 'Active style' : 'Set as active generation style'}
-                            aria-label={isSelected ? 'Active style' : 'Select style'}
-                            className={cn(
-                              'px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer',
-                              isSelected
-                                ? 'bg-indigo-brand text-white shadow-2xs'
-                                : 'text-charcoal/70 bg-white border border-border-light hover:text-indigo-brand hover:border-indigo-200 hover:bg-cream-200'
-                            )}
-                          >
-                            {isSelected ? 'Active' : 'Select'}
-                          </button>
+                          {isSelected ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-brand text-white shadow-2xs">
+                              <Check className="w-3 h-3" />
+                              <span>Active</span>
+                            </span>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => dispatch(setSelectedStyleId(style.id))}
+                              className="text-charcoal/70 hover:text-indigo-brand"
+                            >
+                              Select
+                            </Button>
+                          )}
 
-                          <button
-                            type="button"
+                          {/* Duplicate Icon Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleOpenCreate(style.template, style.name)}
-                            title="Duplicate style"
-                            aria-label="Duplicate style"
-                            className="p-1.5 rounded-lg text-charcoal/60 hover:text-charcoal bg-white hover:bg-cream-200 border border-border-light transition-colors cursor-pointer shadow-2xs"
+                            className="p-1.5 text-charcoal/60 hover:text-indigo-brand border-border-light bg-white"
+                            title="Duplicate Style"
                           >
                             <Copy className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
 
+                          {/* Edit Icon Button */}
                           {!isProtectedStyle(style) && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(style)}
-                                title="Edit style"
-                                aria-label="Edit style"
-                                className="p-1.5 rounded-lg text-indigo-brand bg-indigo-50/90 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer shadow-2xs"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEdit(style)}
+                              className="p-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/40 hover:bg-indigo-100/60"
+                              title="Edit Style"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
 
-                              {isConfirmingDelete ? (
-                                <div className="flex items-center gap-1 bg-red-50 px-1.5 py-1 rounded-lg border border-red-200 animate-in fade-in duration-150">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(style.id, style.name)}
-                                    title="Confirm delete"
-                                    aria-label="Confirm delete"
-                                    className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer"
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDeleteConfirmId(null)}
-                                    title="Cancel"
-                                    aria-label="Cancel"
-                                    className="px-1 py-0.5 rounded text-[10px] font-mono text-charcoal/60 hover:text-charcoal cursor-pointer"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirmId(style.id)}
-                                  title="Delete style"
-                                  aria-label="Delete style"
-                                  className="p-1.5 rounded-lg text-red-600 bg-red-50/90 border border-red-200 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer shadow-2xs"
+                          {/* Delete Icon Button */}
+                          {!isProtectedStyle(style) && (
+                            isConfirmingDelete ? (
+                              <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200">
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleDelete(style.id, style.name)}
+                                  className="bg-red-600 hover:bg-red-700 text-white h-6 px-1.5 text-[11px]"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </>
+                                  Confirm
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="h-6 px-1.5 text-[11px]"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDeleteConfirmId(style.id)}
+                                className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-white"
+                                title="Delete Style"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )
                           )}
                         </div>
                       </div>
@@ -536,241 +300,35 @@ export const StyleManagerDialog: React.FC = () => {
             </div>
           </>
         ) : (
-          /* Editor Mode */
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setMode('list')}
-                className="flex items-center gap-1.5 text-xs font-mono text-charcoal/60 hover:text-indigo-brand transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Styles List</span>
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviousMode('editor');
-                    setMode('guide');
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono text-indigo-brand bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
-                  title="View Allowed Variables & Fallback Rules"
-                >
-                  <BookOpen className="w-3 h-3" />
-                  <span>Variables Guide</span>
-                </button>
-                <span className="text-[11px] font-mono text-charcoal/40 hidden sm:inline">
-                  Type variable name for autocomplete
-                </span>
-              </div>
-            </div>
-
-            {/* Style Name Input */}
-            <div>
-              <label htmlFor="style-name-input" className="block text-xs font-mono uppercase tracking-wider text-charcoal/70 mb-1">
-                Style Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="style-name-input"
-                type="text"
-                placeholder="e.g. My Custom Journal Style"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-sans bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-indigo-brand"
-              />
-            </div>
-
-            {/* Template Textarea with Autocomplete */}
-            <div className="relative">
-              <label htmlFor="style-template-input" className="block text-xs font-mono uppercase tracking-wider text-charcoal/70 mb-1">
-                LaTeX Template String <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                ref={textareaRef}
-                id="style-template-input"
-                rows={4}
-                value={template}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g. \bibitem{citation key} authors last first. title. journal abbreviation year;volume(issue):article number. doi:doi."
-                className="w-full px-3 py-2 text-xs font-mono bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-indigo-brand leading-relaxed"
-              />
-
-              {/* Autocomplete Dropdown Popup - Opens below textarea to prevent top clipping */}
-              <AnimatePresence>
-                {showSuggestions && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-48 sm:max-h-56 overflow-y-auto rounded-xl bg-charcoal-900 text-cream border border-charcoal-700 shadow-2xl py-1"
-                  >
-                    <div className="px-3 py-1.5 text-[10px] font-mono text-cream/40 uppercase tracking-widest border-b border-charcoal-800 flex items-center justify-between">
-                      <span>Suggested Fields ({filteredFields.length})</span>
-                      <span className="text-[9px] text-cream/30">Tab / Enter</span>
-                    </div>
-                    {filteredFields.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-cream/50 font-mono">
-                        No matching fields.
-                      </div>
-                    ) : (
-                      filteredFields.map((field, idx) => (
-                        <button
-                          key={field}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            insertTag(field);
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-1.5 text-xs font-mono transition-colors flex items-center justify-between cursor-pointer',
-                            idx === activeSuggestionIndex
-                              ? 'bg-indigo-600 text-white font-medium'
-                              : 'text-cream/80 hover:bg-charcoal-800 hover:text-white'
-                          )}
-                        >
-                          <span className="font-semibold">{field}</span>
-                          <span className="text-[10px] opacity-60">Tab / Enter</span>
-                        </button>
-                      ))
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Author Threshold Checkbox (> 7 authors rule) */}
-            <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl bg-white border border-border-light shadow-2xs">
-              <input
-                id="truncate-authors-checkbox"
-                type="checkbox"
-                checked={truncateAuthors}
-                onChange={(e) => setTruncateAuthors(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
-              />
-              <label htmlFor="truncate-authors-checkbox" className="text-xs text-charcoal-900 cursor-pointer select-none">
-                <span className="font-semibold block text-xs">
-                  First author shown for &gt; 7 authors (Threshold Rule)
-                </span>
-                <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
-                  If checked, citations with &gt; 7 authors only show the first author followed by{' '}
-                  <code className="font-mono text-indigo-brand">\textit&#123;et al.&#125;</code>. If unchecked, all authors are shown.
-                </span>
-              </label>
-            </div>
-
-            {/* Validation Errors Box */}
-            {validationErrors.length > 0 && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-sans space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-red-800">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>Template Syntax Warning</span>
-                </div>
-                <ul className="list-disc list-inside space-y-0.5 text-[11px] font-mono">
-                  {validationErrors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Live LaTeX Citation Preview Box */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-mono text-charcoal/60 uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-indigo-brand" />
-                  <span>Live Preview (Ghosh 2017 Sample)</span>
-                </span>
-                {isValidating && (
-                  <span className="text-[10px] font-mono text-indigo-brand animate-pulse">
-                    Updating preview...
-                  </span>
-                )}
-              </div>
-              <div className="rounded-xl border border-charcoal-800 bg-charcoal-900 text-cream p-3 font-mono text-xs overflow-auto max-h-32 select-all leading-relaxed shadow-inner">
-                {livePreview ? (
-                  <pre className="m-0 whitespace-pre-wrap">{livePreview}</pre>
-                ) : (
-                  <span className="text-charcoal/50 italic font-sans text-xs">
-                    {validationErrors.length > 0
-                      ? 'Fix template syntax above to preview citation output.'
-                      : 'Rendering preview...'}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-border-light">
-              {editingStyleId && !isProtectedStyle(styles.find((s) => s.id === editingStyleId) || ({} as CitationStyle)) ? (
-                deleteConfirmId === editingStyleId ? (
-                  <div className="flex items-center gap-1.5 bg-red-50 px-2.5 py-1 rounded-xl border border-red-200">
-                    <span className="text-xs font-mono font-semibold text-red-700">Delete this style?</span>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        const styleToDelete = styles.find((s) => s.id === editingStyleId);
-                        if (styleToDelete) {
-                          handleDelete(styleToDelete.id, styleToDelete.name);
-                          setMode('list');
-                        }
-                      }}
-                      className="bg-red-600 hover:bg-red-700 text-white h-7 px-2 text-xs"
-                    >
-                      Confirm
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteConfirmId(null)}
-                      className="h-7 px-2 text-xs"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => setDeleteConfirmId(editingStyleId)}
-                    className="gap-1.5 text-red-600 border-red-200 bg-red-50/60 hover:bg-red-100/80 hover:text-red-700"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Style</span>
-                  </Button>
-                )
-              ) : (
-                <div />
-              )}
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMode('list')}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={isSaving || validationErrors.length > 0 || !name.trim()}
-                  className="gap-1.5"
-                >
-                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  <span>{editingStyleId ? 'Save Changes' : 'Create Style'}</span>
-                </Button>
-              </div>
-            </div>
-          </div>
+          /* Editor Mode: Visual Template Builder */
+          <VisualTemplateBuilder
+            initialTemplate={template}
+            initialName={name}
+            onChangeName={(newName) => setName(newName)}
+            onChangeTemplate={(newTpl) => setTemplate(newTpl)}
+            onBack={() => setMode('list')}
+            onOpenGuide={() => {
+              setPreviousMode('editor');
+              setMode('guide');
+            }}
+            onSave={handleSave}
+            isSaving={isSaving}
+            isEdit={!!editingStyleId}
+            isProtected={
+              editingStyleId
+                ? isProtectedStyle(styles.find((s) => s.id === editingStyleId) || ({} as CitationStyle))
+                : false
+            }
+            onDelete={() => {
+              const s = styles.find((x) => x.id === editingStyleId);
+              if (s) {
+                handleDelete(s.id, s.name);
+                setMode('list');
+              }
+            }}
+          />
         )}
       </div>
     </Modal>
   );
 };
-
