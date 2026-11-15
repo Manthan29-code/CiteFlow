@@ -6,9 +6,6 @@ import {
   X,
   ArrowLeft,
   Users,
-  FileText,
-  Info,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch } from '@/store/hooks';
@@ -16,177 +13,126 @@ import { addToast } from '@/store/slices/uiSlice';
 
 export interface VariableItem {
   tag: string;
-  category: 'author' | 'metadata';
+  category: 'author' | 'publication' | 'identification';
   name: string;
   description: string;
   fallback?: string;
   example: string;
+  supportsBold?: boolean;
+  supportsLink?: boolean;
 }
 
 const VARIABLES: VariableItem[] = [
-  // Fine-grained author metadata variables
+  // Author metadata
   {
     tag: 'surname',
     category: 'author',
     name: 'Author Surname / Family Name',
-    description: 'Surname of the author(s). In the Visual Builder, combine with firstname to configure author sequence.',
+    description: 'Last name / family surname of each author. Combine with firstname in any order.',
     example: 'Ghosh',
   },
   {
     tag: 'firstname',
     category: 'author',
-    name: 'Author Given Name / Initials',
-    description: 'First or given name initials of the author(s).',
+    name: 'Author Given Name / Initial',
+    description: 'Given name or first initial of each author.',
     example: 'S.',
   },
   {
     tag: 'middle name',
     category: 'author',
-    name: 'Author Middle Name / Initials',
-    description: 'Middle name or middle initials of the author(s).',
+    name: 'Author Middle Name / Initial',
+    description: 'Middle name or middle initial of each author.',
     example: 'K.',
   },
 
-  // Author representations in lowercase
-  {
-    tag: 'authors last first .',
-    category: 'author',
-    name: 'Surname First, Undotted + Trailing Period',
-    description: 'Surname first, undotted compressed initials followed by sentence period (Vancouver / AMA style: Ghosh S, Chattopadhyay PK.). Space before dot distinguishes from dotted initials.',
-    example: 'Ghosh S, Chattopadhyay PK, Bora D.',
-  },
-  {
-    tag: 'authors last first.',
-    category: 'author',
-    name: 'Surname First, Dotted Initials',
-    description: 'Surname first, dotted initials (Ghosh S., Chattopadhyay P. K.) separated by commas.',
-    example: 'Ghosh S., Chattopadhyay P. K., Bora D.',
-  },
-  {
-    tag: 'authors last first',
-    category: 'author',
-    name: 'Surname First, Compressed Initials',
-    description: 'Surname first, undotted compressed initials (Ghosh S, Chattopadhyay PK) separated by commas (Vancouver / AMA style).',
-    example: 'Ghosh S, Chattopadhyay PK, Bora D',
-  },
-  {
-    tag: 'authors first. last',
-    category: 'author',
-    name: 'Dotted Initials First, Surname',
-    description: 'Dotted initials first, surname (S. Ghosh, P. K. Chattopadhyay, and D. Bora) with Oxford comma and "and" (IEEE style).',
-    example: 'S. Ghosh, P. K. Chattopadhyay, and D. Bora',
-  },
-  {
-    tag: 'authors first last',
-    category: 'author',
-    name: 'Undotted Initials First, Surname',
-    description: 'Undotted initials first, surname (S Ghosh, P K Chattopadhyay, and D Bora) with "and".',
-    example: 'S Ghosh, P K Chattopadhyay, and D Bora',
-  },
-  {
-    tag: 'authors',
-    category: 'author',
-    name: 'Default CiteFlow IOP Author List',
-    description: 'Default CiteFlow IOP style author format (Ghosh S, Chattopadhyay P K and Bora D).',
-    example: 'Ghosh S, Chattopadhyay P K and Bora D',
-  },
-
-  // Bibliographic metadata in lowercase
-  {
-    tag: 'citation key',
-    category: 'metadata',
-    name: 'Citation Key',
-    description: 'First author surname + year identifier for \\bibitem.',
-    example: 'Ghosh2017',
-  },
+  // Publication metadata
   {
     tag: 'title',
-    category: 'metadata',
+    category: 'publication',
     name: 'Paper Title',
-    description: 'Full sanitized document title.',
+    description: 'Full sanitized title of the document or research article.',
     example: 'Transition from single to multiple axial potential structure in expanding helicon plasma',
   },
   {
     tag: 'journal',
-    category: 'metadata',
-    name: 'Journal Name',
-    description: 'Full standard journal publication title.',
+    category: 'publication',
+    name: 'Journal Title',
+    description: 'Full official publication title of the journal.',
     example: 'Journal of Physics D: Applied Physics',
   },
   {
-    tag: 'journal abbreviation',
-    category: 'metadata',
-    name: 'ISO Journal Abbreviation',
-    description: 'Standard ISO abbreviation for the journal.',
-    fallback: 'Falls back to journal if absent',
-    example: 'J Phys D Appl Phys',
-  },
-  {
     tag: 'journal abbr',
-    category: 'metadata',
-    name: 'Journal Abbreviation (Compact)',
-    description: 'Compact variable for ISO journal abbreviation.',
-    fallback: 'Falls back to journal if absent',
+    category: 'publication',
+    name: 'Journal Abbreviation',
+    description: 'Standard ISO abbreviation for the journal.',
+    fallback: 'Falls back to full journal title if absent',
     example: 'J Phys D Appl Phys',
-  },
-  {
-    tag: 'year',
-    category: 'metadata',
-    name: 'Publication Year',
-    description: '4-digit publication calendar year.',
-    example: '2017',
   },
   {
     tag: 'volume',
-    category: 'metadata',
+    category: 'publication',
     name: 'Journal Volume',
-    description: 'Journal volume designation.',
+    description: 'Volume designation. Supports Bold formatting toggle.',
+    supportsBold: true,
     example: '50',
   },
   {
     tag: 'issue',
-    category: 'metadata',
+    category: 'publication',
     name: 'Journal Issue',
-    description: 'Issue or edition number within volume.',
+    description: 'Issue or edition number within volume. Supports Bold formatting toggle.',
+    supportsBold: true,
     example: '6',
   },
   {
     tag: 'article number',
-    category: 'metadata',
+    category: 'publication',
     name: 'Article Identifier',
-    description: 'Unique electronic article / CID number.',
+    description: 'Unique electronic article / CID identifier. Supports Bold formatting toggle.',
     fallback: 'Falls back to first page if absent',
+    supportsBold: true,
     example: '065201',
   },
   {
     tag: 'first page',
-    category: 'metadata',
+    category: 'publication',
     name: 'First Page Number',
-    description: 'Initial page of printed article span.',
+    description: 'Starting page number of printed article.',
     fallback: 'Falls back to article number if absent',
     example: '459',
   },
   {
-    tag: 'locator',
-    category: 'metadata',
-    name: 'Smart Locator (Page / Article ID)',
-    description: 'Automatically chooses article number or first page based on availability.',
-    fallback: 'Auto-picks article number or first page',
-    example: '065201',
+    tag: 'year',
+    category: 'publication',
+    name: 'Publication Year',
+    description: '4-digit publication calendar year.',
+    example: '2017',
   },
+
+  // Identification metadata
   {
-    tag: 'doi',
-    category: 'metadata',
-    name: 'Raw Digital Object Identifier',
-    description: 'Raw DOI identifier without URL prefix.',
-    example: '10.1088/1361-6463/aa5068',
+    tag: 'citation key',
+    category: 'identification',
+    name: 'Citation Key',
+    description: 'BibTeX identifier (first author surname + year) for \\bibitem.',
+    example: 'Ghosh2017',
   },
   {
     tag: 'doi url',
-    category: 'metadata',
+    category: 'identification',
     name: 'Clickable DOI URL',
-    description: 'Complete HTTPS DOI link, ideal for \\href{doi url}{doi url}.',
+    description: 'Full HTTPS link to paper DOI. Supports Link formatting toggle.',
+    supportsLink: true,
     example: 'https://doi.org/10.1088/1361-6463/aa5068',
+  },
+  {
+    tag: 'doi',
+    category: 'identification',
+    name: 'Digital Object Identifier',
+    description: 'Raw DOI identifier without URL scheme. Supports Link formatting toggle.',
+    supportsLink: true,
+    example: '10.1088/1361-6463/aa5068',
   },
 ];
 
@@ -203,7 +149,7 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'author' | 'metadata'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'author' | 'publication' | 'identification'>('all');
   const [copiedTag, setCopiedTag] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
@@ -269,57 +215,83 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
         </div>
       </div>
 
-      {/* Author Representation & Generalization Rules */}
-      <div className="p-3.5 sm:p-4 rounded-xl bg-cream-100 border border-border-light text-xs text-charcoal-800 space-y-2 shadow-2xs">
+      {/* Author Representation & Visual Assembly */}
+      <div className="p-3.5 sm:p-4 rounded-xl bg-cream-100 border border-border-light text-xs text-charcoal-800 space-y-3 shadow-2xs">
         <div className="flex items-center gap-2 font-serif font-bold text-sm text-charcoal-900">
           <Users className="w-4 h-4 text-indigo-brand shrink-0" />
-          <span>Author Representation &amp; Generalization</span>
+          <span>Author Representation &amp; Visual Assembly</span>
         </div>
         <p className="text-[11px] font-sans text-charcoal/80 leading-relaxed">
-          You can write variables in lowercase or uppercase without any angle brackets. Select the exact author format you need:
+          In the Visual Style Builder, citation formats are created by assembling metadata variables and text blocks. Author names are constructed using individual components (<code>surname</code>, <code>firstname</code>, <code>middle name</code>) instead of fixed strings. Drag and sequence these blocks with custom punctuation to format any journal style:
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-sans">
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first .</div>
-            <div className="text-charcoal/80">Surname first, undotted compressed initials + sentence period Space before dot.</div>
+          <div className="p-2.5 rounded-lg bg-white/90 border border-border-light space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-charcoal-900 text-xs">AMA / Vancouver Style</span>
+              <span className="font-mono text-[10px] text-indigo-brand bg-indigo-50 px-1.5 py-0.5 rounded font-bold">surname firstname</span>
+            </div>
+            <div className="font-mono text-[10px] text-charcoal/70 bg-charcoal/5 p-1 rounded">
+              Ghosh S, Chattopadhyay PK, Bora D.
+            </div>
+            <div className="text-[10px] text-charcoal/60">Surname first followed by given name initials, separated by commas.</div>
           </div>
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first.</div>
-            <div className="text-charcoal/80">Surname first, dotted initials Dot(.) attached directly to first.</div>
+
+          <div className="p-2.5 rounded-lg bg-white/90 border border-border-light space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-charcoal-900 text-xs">IEEE Style</span>
+              <span className="font-mono text-[10px] text-indigo-brand bg-indigo-50 px-1.5 py-0.5 rounded font-bold">firstname . surname</span>
+            </div>
+            <div className="font-mono text-[10px] text-charcoal/70 bg-charcoal/5 p-1 rounded">
+              S. Ghosh, P. K. Chattopadhyay, and D. Bora
+            </div>
+            <div className="text-[10px] text-charcoal/60">Given initial with dot first, then family surname. Uses Oxford comma &amp; &ldquo;and&rdquo;.</div>
           </div>
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors last first</div>
-            <div className="text-charcoal/80">Surname first, undotted compressed initials without period </div>
+
+          <div className="p-2.5 rounded-lg bg-white/90 border border-border-light space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-charcoal-900 text-xs">Dotted Surname First</span>
+              <span className="font-mono text-[10px] text-indigo-brand bg-indigo-50 px-1.5 py-0.5 rounded font-bold">surname firstname .</span>
+            </div>
+            <div className="font-mono text-[10px] text-charcoal/70 bg-charcoal/5 p-1 rounded">
+              Ghosh S., Chattopadhyay P. K., Bora D.
+            </div>
+            <div className="text-[10px] text-charcoal/60">Surname first with dotted initial and trailing period.</div>
           </div>
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors first. last</div>
-            <div className="text-charcoal/80">Dotted initials first, surname with Oxford comma and &ldquo;and&rdquo; before last name</div>
-          </div>
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors first last</div>
-            <div className="text-charcoal/80">Undotted initials first then surname </div>
-          </div>
-          <div className="p-2 rounded-lg bg-white/80 border border-border-light space-y-0.5">
-            <div className="font-mono font-semibold text-indigo-brand text-xs">authors</div>
-            <div className="text-charcoal/80">CiteFlow IOP style (Ghosh S, Chattopadhyay P K and Bora D).</div>
+
+          <div className="p-2.5 rounded-lg bg-white/90 border border-border-light space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-charcoal-900 text-xs">Full Name with Middle</span>
+              <span className="font-mono text-[10px] text-indigo-brand bg-indigo-50 px-1.5 py-0.5 rounded font-bold">firstname middle name surname</span>
+            </div>
+            <div className="font-mono text-[10px] text-charcoal/70 bg-charcoal/5 p-1 rounded">
+              S. K. Ghosh, P. K. Chattopadhyay
+            </div>
+            <div className="text-[10px] text-charcoal/60">First and middle initials or names preceding surname.</div>
           </div>
         </div>
 
-        {/* Trailing Dot & Threshold Rules */}
-        <div className="mt-2 pt-2 border-t border-border-light/70 space-y-1.5 text-[11px] font-mono text-indigo-950 bg-white/70 p-2.5 rounded-lg border border-indigo-100">
+        {/* Author Rule Checkboxes & Controls */}
+        <div className="mt-2 pt-2 border-t border-border-light/70 space-y-1.5 text-[11px] font-sans text-charcoal-900 bg-white/80 p-2.5 rounded-lg border border-indigo-100">
           <div>
-            <strong className="text-indigo-brand">Author Format Differentiation:</strong>
-            <ul className="list-disc list-inside mt-0.5 text-charcoal/80 space-y-0.5">
-              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first .</code> :- Undotted initials with sentence period at end (space between &ldquo;first&rdquo; and &ldquo;.&rdquo;).</li>
-              <li><code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">authors last first.</code> :- Surname first, dotted initials (e.g. Ghosh S., Chattopadhyay P. K.).</li>
-            </ul>
+            <strong className="text-indigo-brand font-mono text-xs">Threshold Rule Checkbox (&gt; 7 Authors):</strong>
+            <span className="text-charcoal/80 ml-1">
+              When checked, publications with more than 7 authors will display only the first author followed by <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-mono">\textit&#123;et al.&#125;</code>. When unchecked, all authors are shown regardless of count.
+            </span>
           </div>
 
           <div className="pt-1 border-t border-indigo-50">
-            <strong className="text-indigo-brand">Threshold Rule &amp; Checkbox:</strong> When enabled, papers with{' '}
-            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">&gt; 7</code> authors only show the first author +{' '}
-            <code className="px-1 py-0.2 rounded bg-indigo-50 text-indigo-brand font-semibold">\textit&#123;et al.&#125;</code>. When unchecked, all authors are displayed regardless of count.
+            <strong className="text-indigo-brand font-mono text-xs">&ldquo;And&rdquo; Before Last Name Checkbox:</strong>
+            <span className="text-charcoal/80 ml-1">
+              When checked, automatically inserts &ldquo;and&rdquo; before the final author in the citation list (e.g. <em>A, B, and C</em>).
+            </span>
+          </div>
+
+          <div className="pt-1 border-t border-indigo-50">
+            <strong className="text-indigo-brand font-mono text-xs">Drag-and-Drop Assembly:</strong>
+            <span className="text-charcoal/80 ml-1">
+              Add individual punctuation blocks (such as <code>.</code>, <code>,</code>, or spaces) directly between <code>surname</code> and <code>firstname</code> to achieve custom spacing.
+            </span>
           </div>
         </div>
       </div>
@@ -331,7 +303,7 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-charcoal/40" />
           <input
             type="text"
-            placeholder="Search variables (e.g. authors, doi, locator)..."
+            placeholder="Search variables (e.g. surname, volume, doi url)..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-border-light rounded-xl text-charcoal-900 placeholder:text-charcoal/40 focus:outline-none focus:ring-2 focus:ring-indigo-brand shadow-xs font-mono"
@@ -372,19 +344,31 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                 : 'text-charcoal/60 hover:text-charcoal'
             )}
           >
-            Authors
+            Authors ({VARIABLES.filter((v) => v.category === 'author').length})
           </button>
           <button
             type="button"
-            onClick={() => setSelectedCategory('metadata')}
+            onClick={() => setSelectedCategory('publication')}
             className={cn(
               'px-2.5 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer',
-              selectedCategory === 'metadata'
+              selectedCategory === 'publication'
                 ? 'bg-white text-indigo-brand font-semibold shadow-xs'
                 : 'text-charcoal/60 hover:text-charcoal'
             )}
           >
-            Metadata
+            Publication ({VARIABLES.filter((v) => v.category === 'publication').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('identification')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer',
+              selectedCategory === 'identification'
+                ? 'bg-white text-indigo-brand font-semibold shadow-xs'
+                : 'text-charcoal/60 hover:text-charcoal'
+            )}
+          >
+            ID ({VARIABLES.filter((v) => v.category === 'identification').length})
           </button>
         </div>
       </div>
@@ -415,10 +399,32 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                       key={item.tag}
                       className="hover:bg-cream-50/80 transition-colors group"
                     >
-                      {/* Tag */}
+                      {/* Tag & Info */}
                       <td className="py-2.5 px-3 align-top font-mono">
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50/70 border border-indigo-200/60 text-indigo-brand font-bold text-[11px]">
-                          <span>{item.tag}</span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50/70 border border-indigo-200/60 text-indigo-brand font-bold text-[11px]">
+                              {item.tag}
+                            </span>
+                            {item.supportsBold && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-purple-50 text-purple-700 border border-purple-200">
+                                Bold
+                              </span>
+                            )}
+                            {item.supportsLink && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-blue-50 text-blue-700 border border-blue-200">
+                                Link
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-sans text-charcoal/70">
+                            {item.description}
+                          </span>
+                          {item.fallback && (
+                            <span className="text-[10px] font-mono text-charcoal/50 italic">
+                              {item.fallback}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -479,8 +485,20 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                 className="p-3 rounded-xl border border-border-light bg-white shadow-2xs space-y-2 text-xs"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-brand font-mono font-bold text-[11px] border border-indigo-200 truncate">
-                    {item.tag}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-brand font-mono font-bold text-[11px] border border-indigo-200 truncate">
+                      {item.tag}
+                    </span>
+                    {item.supportsBold && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-purple-50 text-purple-700 border border-purple-200">
+                        Bold
+                      </span>
+                    )}
+                    {item.supportsLink && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-blue-50 text-blue-700 border border-blue-200">
+                        Link
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -495,6 +513,10 @@ export const VariablesGuide: React.FC<VariablesGuideProps> = ({
                     {isCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                     <span>{isCopied ? 'Copied' : 'Copy'}</span>
                   </button>
+                </div>
+
+                <div className="text-[11px] text-charcoal/70">
+                  {item.description}
                 </div>
 
                 <div className="p-1.5 rounded-lg bg-charcoal-900 text-cream font-mono text-[10px] break-all">

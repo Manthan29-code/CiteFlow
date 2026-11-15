@@ -108,3 +108,44 @@ Liveness and readiness probes are available at:
 - **Automated Expiry & Retention**:
   - Background maintenance automatically expires abandoned interactive jobs after `INTERRUPT_EXPIRE_HOURS` and purges completed jobs older than `JOB_RETENTION_DAYS`.
 
+---
+
+## 5. Citation Styles Engine & Metadata Specification
+
+### 5.1 Architecture & Formatting Engine
+- **Modular Style Engine (`src/citegen/latex/style_engine.py`)**:
+  - Deterministic rendering of LaTeX `\bibitem` entries from normalized `ArticleMetadata`.
+  - Author representation driven by modular tokens:
+    - `surname`: Family / last name of each author.
+    - `firstname`: Given name or first initial of each author.
+    - `middle name`: Middle name or middle initial.
+  - Supports custom punctuation (periods, commas, spaces) placed directly between author tokens in the template.
+  - Configurable author rules:
+    - **Threshold Rule**: Citations with `> 7` authors automatically truncate to first author + `\textit{et al.}`.
+    - **Conjunction Rule**: Automatically inserts `'and'` before the final author when requested.
+
+### 5.2 Supported Template Variables
+| Category | Variable Name | Description | Example Output |
+| :--- | :--- | :--- | :--- |
+| **Author** | `surname` | Family surname of each author | `Ghosh` |
+| **Author** | `firstname` | Given name or initial | `S.` |
+| **Author** | `middle name` | Middle name or initial | `K.` |
+| **Publication** | `title` | Full sanitized document title | `Transition from single to multiple...` |
+| **Publication** | `journal` | Standard journal publication name | `Journal of Physics D: Applied Physics` |
+| **Publication** | `journal abbr` | Standard ISO journal abbreviation | `J Phys D Appl Phys` |
+| **Publication** | `volume` | Journal volume designation (supports bold) | `50` |
+| **Publication** | `issue` | Journal issue designation (supports bold) | `6` |
+| **Publication** | `article number` | Electronic article / CID number (supports bold) | `065201` |
+| **Publication** | `first page` | Initial printed page number | `459` |
+| **Publication** | `year` | 4-digit publication calendar year | `2017` |
+| **Identification** | `citation key` | BibTeX identifier (`<Surname><Year>`) | `Ghosh2017` |
+| **Identification** | `doi url` | Clickable HTTPS DOI link (supports link toggle) | `https://doi.org/10.1088/...` |
+| **Identification** | `doi` | Raw DOI identifier without URL scheme | `10.1088/...` |
+
+### 5.3 Styles API Endpoints
+- `GET /api/v1/styles`: Lists available built-in styles and the authenticated user's custom styles.
+- `GET /api/v1/styles/fields`: Returns the list of permitted metadata variable names.
+- `POST /api/v1/styles`: Creates a new custom citation style scoped to the authenticated user.
+- `PUT /api/v1/styles/{id}`: Updates a custom citation style owned by the user.
+- `DELETE /api/v1/styles/{id}`: Deletes a user's custom citation style (built-in styles are protected).
+

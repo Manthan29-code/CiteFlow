@@ -76,6 +76,24 @@ The app runs at `http://localhost:5173`. In development, requests to `/api` are 
 - **Needs Attention Indicator in Navigation**:
   - Top bar badge dynamically counts jobs requiring user confirmation or review; clicking immediately opens the matching dialog.
 
+### 2.3 Citation Style Management & Visual Builder
+- **Visual Drag-and-Drop Builder (`VisualTemplateBuilder.tsx`)**:
+  - Construct custom journal bibliography formats visually without memorizing variable tags or syntax.
+  - Insertion-based reordering for both metadata variables and literal text blocks.
+  - Text blocks automatically support arbitrary punctuation, spaces, and LaTeX commands (`\textit{`, `\textbf{`, `\href{`).
+- **Author Representation & Name Ordering**:
+  - Uses modular author components: `surname`, `firstname`, and `middle name` rather than rigid monolithic strings.
+  - Flexible sequence assembly (e.g., `surname firstname` for AMA/Vancouver, `firstname . surname` for IEEE).
+  - **Threshold Rule (> 7 Authors)**: Truncates citations exceeding 7 authors to the first author followed by `\textit{et al.}`.
+  - **"And" Before Last Name**: Inserts Oxford-style "and" before the final author in the citation.
+- **Formatting Toggles**:
+  - **Bold**: Toggle bold LaTeX formatting directly on `volume`, `issue`, and `article number`.
+  - **Link**: Toggle clickable LaTeX `\href{...}` hyperlinks on `doi url` and `doi`.
+- **Live Preview**: Real-time rendering with authentic sample data (`Ghosh2017`) wrapped in `\begin{thebibliography}{99} ... \end{thebibliography}`.
+- **Interactive Variables Reference (`VariablesGuide.tsx`)**:
+  - Comprehensive guide covering all 14 metadata variables categorized by Author, Publication, and Identification.
+  - Search filtering, live example outputs, and one-click clipboard copying.
+
 ---
 
 ## 3. Design System: Editorial 'Premium Fluidity'
