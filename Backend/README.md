@@ -83,7 +83,7 @@ cd Backend
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Interactive OpenAPI documentation is available at: `http://localhost:8000/docs` or `http://localhost:8000/openapi.json`.
+Interactive OpenAPI documentation is available at: `http://localhost:8001/docs` or `http://localhost:8001/openapi.json`.
 Liveness and readiness probes are available at:
 - `GET /health`
 - `GET /health/ready`

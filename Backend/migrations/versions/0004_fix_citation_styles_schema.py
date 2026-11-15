@@ -7,6 +7,7 @@ Create Date: 2026-11-05 11:30:00.000000
 """
 from typing import Sequence, Union
 from alembic import op
+import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -71,7 +72,8 @@ def upgrade() -> None:
 
     # 3. Seed built-in default citation styles
     op.execute(
-        r"""
+        sa.text(
+            r"""
         INSERT INTO citation_styles (id, owner_id, name, slug, template, is_builtin, created_at, updated_at)
         VALUES 
             (
@@ -89,7 +91,7 @@ def upgrade() -> None:
                 NULL,
                 'AMA / Vancouver',
                 'ama-vancouver',
-                $$\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue):article number. doi:doi.$$,
+                $$\bibitem{citation key} authors last first . title. journal abbreviation year;volume(issue)\:article number. doi\:doi.$$,
                 true,
                 NOW(),
                 NOW()
@@ -105,6 +107,7 @@ def upgrade() -> None:
                 NOW()
             );
         """
+        ).execution_options(no_parameters=True)
     )
 
 
