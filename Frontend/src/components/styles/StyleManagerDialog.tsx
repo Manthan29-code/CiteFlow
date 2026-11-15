@@ -38,6 +38,7 @@ export const StyleManagerDialog: React.FC = () => {
   const [template, setTemplate] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [copiedStyleId, setCopiedStyleId] = useState<string | null>(null);
 
   // Load styles when modal opens
   useEffect(() => {
@@ -69,6 +70,20 @@ export const StyleManagerDialog: React.FC = () => {
     setName(style.name);
     setTemplate(style.template);
     setMode('editor');
+  };
+
+  const handleCopyTemplate = async (templateStr: string, styleId: string, styleName: string) => {
+    try {
+      const cleanTemplate = templateStr.replace(/^\s*%.*$/gm, '').trim();
+      await navigator.clipboard.writeText(cleanTemplate);
+      setCopiedStyleId(styleId);
+      dispatch(addToast({ type: 'success', message: `Copied "${styleName}" template to clipboard.` }));
+      setTimeout(() => {
+        setCopiedStyleId((prev) => (prev === styleId ? null : prev));
+      }, 2000);
+    } catch {
+      dispatch(addToast({ type: 'error', message: 'Failed to copy to clipboard.' }));
+    }
   };
 
   const handleClose = () => {
@@ -212,7 +227,7 @@ export const StyleManagerDialog: React.FC = () => {
                           </div>
 
                           <div className="p-2 rounded-lg bg-charcoal-900/5 text-charcoal/70 font-mono text-[11px] leading-relaxed break-all border border-charcoal/10 select-all">
-                            {style.template}
+                            {style.template.replace(/^\s*%.*$/gm, '').trim()}
                           </div>
                         </div>
 
@@ -234,15 +249,24 @@ export const StyleManagerDialog: React.FC = () => {
                             </Button>
                           )}
 
-                          {/* Duplicate Icon Button */}
+                          {/* Copy to Clipboard Icon Button */}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenCreate(style.template, style.name)}
-                            className="p-1.5 text-charcoal/60 hover:text-indigo-brand border-border-light bg-white"
-                            title="Duplicate Style"
+                            onClick={() => handleCopyTemplate(style.template, style.id, style.name)}
+                            className={cn(
+                              'p-1.5 border-border-light bg-white transition-colors',
+                              copiedStyleId === style.id
+                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50/60'
+                                : 'text-charcoal/60 hover:text-indigo-brand'
+                            )}
+                            title={copiedStyleId === style.id ? 'Copied to clipboard!' : 'Copy to Clipboard'}
                           >
-                            <Copy className="w-3.5 h-3.5" />
+                            {copiedStyleId === style.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                           </Button>
 
                           {/* Edit Icon Button */}
