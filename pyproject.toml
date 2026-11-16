@@ -34,6 +34,12 @@ dependencies = [
     "rich",
 ]
 
+[dependency-groups]
+dev = [
+    "workers-py",
+    "workers-runtime-sdk",
+]
+
 [project.optional-dependencies]
 dev = [
     "pytest",
