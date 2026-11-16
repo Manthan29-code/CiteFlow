@@ -19,7 +19,6 @@ dependencies = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
     "sqlalchemy>=2.0.28",
-    "alembic>=1.13.1",
     "psycopg>=3.1.18",
     "psycopg-pool>=3.1.18",
     "argon2-cffi>=23.1.0",
@@ -47,6 +46,7 @@ dev = [
     "respx",
     "ruff",
     "uvicorn[standard]>=0.28.0",
+    "alembic>=1.13.1",
 ]
 pdf = [
     "pymupdf>=1.23.0",
