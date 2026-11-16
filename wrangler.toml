@@ -1,0 +1,15 @@
+name = "citeflow"
+main = "worker.py"
+compatibility_date = "2026-11-16"
+compatibility_flags = ["python_workers"]
+
+# Non-sensitive configuration variables
+[vars]
+APP_ENV = "production"
+LOG_LEVEL = "INFO"
+CLOUDFLARE_WORKER = "true"
+COOKIE_SECURE = "true"
+COOKIE_SAMESITE = "none"
+
+# Put your Vercel deployment URL here (comma-separated if multiple):
+CORS_ALLOW_ORIGINS = "https://cite-flow-six.vercel.app,http://localhost:5173"

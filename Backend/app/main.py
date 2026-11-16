@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -78,25 +79,31 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error(f"Error during job recovery on startup: {e}")
 
-    # 6. Start background workers
-    cleaner_worker = StorageCleanerWorker(get_storage())
-    await cleaner_worker.start()
+    # 6. Start background workers (skip persistent loops in serverless/Cloudflare Worker isolates)
+    is_serverless = os.getenv("CLOUDFLARE_WORKER", "").lower() in ("true", "1")
+    cleaner_worker = None
+    maintenance_task = None
 
-    maintenance_task = asyncio.create_task(run_periodic_maintenance())
+    if not is_serverless:
+        cleaner_worker = StorageCleanerWorker(get_storage())
+        await cleaner_worker.start()
+        maintenance_task = asyncio.create_task(run_periodic_maintenance())
 
     yield
 
     # Shutdown
     logger.info("Shutting down CiteFlow Backend...")
-    maintenance_task.cancel()
-    try:
-        await maintenance_task
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logger.warning(f"Error during maintenance task cancellation: {e}")
+    if maintenance_task:
+        maintenance_task.cancel()
+        try:
+            await maintenance_task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.warning(f"Error during maintenance task cancellation: {e}")
 
-    await cleaner_worker.stop()
+    if cleaner_worker:
+        await cleaner_worker.stop()
     await close_checkpointer()
     await engine.dispose()
     logger.info("CiteFlow Backend shutdown complete.")

@@ -9,9 +9,8 @@ typer
 rich
 python-dotenv
 
-# PDF & OCR
+# PDF
 pymupdf
-pytesseract
 
 # ==============================================================================
 # FastAPI Backend & Web Server
@@ -20,7 +19,6 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 python-multipart>=0.0.9
 pydantic-settings>=2.2.0
-slowapi>=0.1.9
 
 # ==============================================================================
 # Database & Migrations (PostgreSQL / Neon)
