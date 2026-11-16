@@ -32,8 +32,6 @@ dependencies = [
     "langchain-core",
     "langgraph-checkpoint-postgres",
     "pypdf>=4.0.0",
-    "typer",
-    "rich",
 ]
 
 [dependency-groups]
