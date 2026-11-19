@@ -21,6 +21,7 @@ import { validateCitationTemplate } from '@/api/citationStyles';
 import { cn } from '@/lib/utils';
 
 export type BlockType = 'variable' | 'text';
+export type AndStyle = 'none' | 'no_comma' | 'comma';
 
 export interface BuilderBlock {
   id: string;
@@ -93,8 +94,9 @@ export const DEFAULT_INITIAL_BLOCKS: BuilderBlock[] = [
 export function serializeBlocksToTemplate(
   blocks: BuilderBlock[],
   truncateAuthors: boolean,
-  andBeforeLast: boolean,
-  includeStateComment: boolean = true
+  andStyle: AndStyle | boolean,
+  includeStateComment: boolean = true,
+  authorThreshold: number = 7
 ): string {
   let templateBody = '';
 
@@ -133,9 +135,13 @@ export function serializeBlocksToTemplate(
   const directives: string[] = [];
   if (!truncateAuthors) {
     directives.push('% truncate_authors: false');
+  } else {
+    directives.push(`% author_threshold: ${Math.max(1, authorThreshold || 7)}`);
   }
-  if (andBeforeLast) {
-    directives.push('% and_before_last: true');
+  if (andStyle === 'no_comma') {
+    directives.push('% and_before_last: no_comma');
+  } else if (andStyle === 'comma' || andStyle === true) {
+    directives.push('% and_before_last: comma');
   }
 
   if (includeStateComment) {
@@ -150,10 +156,15 @@ export function serializeBlocksToTemplate(
       isLink: !!b.isLink,
     }));
 
+    const resolvedAndStyle: AndStyle =
+      typeof andStyle === 'boolean' ? (andStyle ? 'comma' : 'none') : andStyle;
+
     const stateJson = JSON.stringify({
       blocks: cleanBlocks,
       truncateAuthors,
-      andBeforeLast,
+      authorThreshold: Math.max(1, authorThreshold || 7),
+      andStyle: resolvedAndStyle,
+      andBeforeLast: resolvedAndStyle !== 'none',
     });
     directives.push(`% builder_state: ${stateJson}`);
   }
@@ -169,12 +180,16 @@ export function serializeBlocksToTemplate(
 export function deserializeTemplateToBlocks(rawTemplate: string): {
   blocks: BuilderBlock[];
   truncateAuthors: boolean;
+  authorThreshold: number;
+  andStyle: AndStyle;
   andBeforeLast: boolean;
 } {
   if (!rawTemplate || !rawTemplate.trim()) {
     return {
       blocks: [...DEFAULT_INITIAL_BLOCKS],
       truncateAuthors: true,
+      authorThreshold: 7,
+      andStyle: 'none',
       andBeforeLast: false,
     };
   }
@@ -185,10 +200,24 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
     try {
       const parsed = JSON.parse(stateMatch[1]);
       if (Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
+        let parsedAndStyle: AndStyle = 'none';
+        if (parsed.andStyle === 'no_comma' || parsed.andStyle === 'comma') {
+          parsedAndStyle = parsed.andStyle;
+        } else if (parsed.andBeforeLast === true) {
+          parsedAndStyle = 'comma';
+        }
+
+        const authorThreshold =
+          typeof parsed.authorThreshold === 'number' && parsed.authorThreshold >= 1
+            ? parsed.authorThreshold
+            : 7;
+
         return {
           blocks: parsed.blocks,
           truncateAuthors: parsed.truncateAuthors !== false,
-          andBeforeLast: !!parsed.andBeforeLast,
+          authorThreshold,
+          andStyle: parsedAndStyle,
+          andBeforeLast: parsedAndStyle !== 'none',
         };
       }
     } catch {
@@ -197,7 +226,18 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
   }
 
   const truncateAuthors = !rawTemplate.includes('% truncate_authors: false');
-  const andBeforeLast = rawTemplate.includes('% and_before_last: true');
+  const thresholdMatch = rawTemplate.match(/%\s*author_threshold:\s*(\d+)/);
+  const authorThreshold = thresholdMatch ? Math.max(1, parseInt(thresholdMatch[1], 10)) : 7;
+
+  let andStyle: AndStyle = 'none';
+  if (rawTemplate.includes('% and_before_last: no_comma')) {
+    andStyle = 'no_comma';
+  } else if (
+    rawTemplate.includes('% and_before_last: comma') ||
+    rawTemplate.includes('% and_before_last: true')
+  ) {
+    andStyle = 'comma';
+  }
 
   // Strip comment lines
   const cleanTemplate = rawTemplate.replace(/^\s*%.*\n?/gm, '').trim();
@@ -324,7 +364,9 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
   return {
     blocks: blocks.length > 0 ? blocks : [...DEFAULT_INITIAL_BLOCKS],
     truncateAuthors,
-    andBeforeLast,
+    authorThreshold,
+    andStyle,
+    andBeforeLast: andStyle !== 'none',
   };
 }
 
@@ -358,7 +400,8 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
   const [name, setName] = useState<string>(initialName || 'My Custom Style');
   const [blocks, setBlocks] = useState<BuilderBlock[]>(parsed.blocks);
   const [truncateAuthors, setTruncateAuthors] = useState<boolean>(parsed.truncateAuthors);
-  const [andBeforeLast, setAndBeforeLast] = useState<boolean>(parsed.andBeforeLast);
+  const [authorThreshold, setAuthorThreshold] = useState<number>(parsed.authorThreshold ?? 7);
+  const [andStyle, setAndStyle] = useState<AndStyle>(parsed.andStyle);
 
   // Undo / Redo history
   const [history, setHistory] = useState<BuilderBlock[][]>([parsed.blocks]);
@@ -420,13 +463,13 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
 
   // Synchronize serialized template back to parent
   useEffect(() => {
-    const serialized = serializeBlocksToTemplate(blocks, truncateAuthors, andBeforeLast, true);
+    const serialized = serializeBlocksToTemplate(blocks, truncateAuthors, andStyle, true, authorThreshold);
     onChangeTemplate(serialized);
-  }, [blocks, truncateAuthors, andBeforeLast, onChangeTemplate]);
+  }, [blocks, truncateAuthors, andStyle, authorThreshold, onChangeTemplate]);
 
   // Live preview evaluation (sends clean template without state comments)
   useEffect(() => {
-    const previewTpl = serializeBlocksToTemplate(blocks, truncateAuthors, andBeforeLast, false);
+    const previewTpl = serializeBlocksToTemplate(blocks, truncateAuthors, andStyle, false, authorThreshold);
     let isCancelled = false;
     setIsValidating(true);
 
@@ -455,7 +498,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [blocks, truncateAuthors, andBeforeLast]);
+  }, [blocks, truncateAuthors, andStyle, authorThreshold]);
 
   // Clean preview text without thebibliography wrapper
   const displayPreview = useMemo(() => {
@@ -637,8 +680,15 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
           : 'relative'
       )}
     >
-      {/* Top Navigation & Header */}
-      <div className="flex items-center justify-between pb-1">
+      {/* Top Navigation & Header - Sticky so it always stays at the top during scroll */}
+      <div
+        className={cn(
+          'sticky z-20 flex items-center justify-between border-b border-border-light/70 transition-all shadow-2xs',
+          isFullscreen
+            ? '-top-6 -mx-6 px-6 py-3 bg-[#fcfbf9]/95 backdrop-blur-sm'
+            : '-top-4 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5 bg-cream/95 backdrop-blur-sm'
+        )}
+      >
         <button
           type="button"
           onClick={onBack}
@@ -990,43 +1040,121 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
 
       {/* Author Formatting Controls */}
       <div className="space-y-2">
-        {/* Checkbox 1: > 7 Authors Threshold Rule */}
+        {/* Checkbox 1: Author Threshold Rule */}
         <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-border-light shadow-2xs">
           <input
             id="builder-truncate-authors"
             type="checkbox"
             checked={truncateAuthors}
             onChange={(e) => setTruncateAuthors(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
+            className="mt-1 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
           />
-          <label htmlFor="builder-truncate-authors" className="text-xs text-charcoal-900 cursor-pointer select-none">
-            <span className="font-semibold block text-xs">
-              First author shown for &gt; 7 authors (Threshold Rule)
-            </span>
-            <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
-              If checked, citations with &gt; 7 authors only show the first author followed by{' '}
+          <div className="text-xs text-charcoal-900 select-none flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap font-semibold text-xs text-charcoal-900">
+              <label htmlFor="builder-truncate-authors" className="cursor-pointer">
+                First author shown for &gt;
+              </label>
+
+              {/* Stepper with < [ input ] > */}
+              <div
+                className={cn(
+                  "inline-flex items-center rounded-lg border border-border-light bg-slate-50/80 shadow-2xs overflow-hidden transition-opacity",
+                  !truncateAuthors && "opacity-50 pointer-events-none"
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setAuthorThreshold((prev) => Math.max(1, prev - 1))}
+                  disabled={!truncateAuthors || authorThreshold <= 1}
+                  className="px-2 py-0.5 text-xs font-bold text-charcoal-700 hover:text-indigo-brand hover:bg-slate-200/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer select-none"
+                  title="Decrease threshold by 1"
+                >
+                  &lt;
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={authorThreshold}
+                  disabled={!truncateAuthors}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (isNaN(val)) {
+                      setAuthorThreshold(1);
+                    } else {
+                      setAuthorThreshold(Math.max(1, val));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!authorThreshold || authorThreshold < 1) {
+                      setAuthorThreshold(1);
+                    }
+                  }}
+                  className="w-12 px-1 py-0.5 text-center text-xs font-semibold text-charcoal-900 bg-white border-x border-border-light focus:outline-none focus:ring-1 focus:ring-indigo-brand [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAuthorThreshold((prev) => prev + 1)}
+                  disabled={!truncateAuthors}
+                  className="px-2 py-0.5 text-xs font-bold text-charcoal-700 hover:text-indigo-brand hover:bg-slate-200/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer select-none"
+                  title="Increase threshold by 1"
+                >
+                  &gt;
+                </button>
+              </div>
+
+              <label htmlFor="builder-truncate-authors" className="cursor-pointer">
+                authors (Threshold Rule)
+              </label>
+            </div>
+
+            <span className="text-[11px] text-charcoal/60 leading-normal block mt-1">
+              If checked, citations with more than the specified number of authors only show the first author followed by{' '}
               <code className="font-mono text-indigo-brand">\textit&#123;et al.&#125;</code>. If unchecked, all authors are shown.
             </span>
-          </label>
+          </div>
         </div>
 
-        {/* Checkbox 2: And before last name */}
-        <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-border-light shadow-2xs">
-          <input
-            id="builder-and-before-last"
-            type="checkbox"
-            checked={andBeforeLast}
-            onChange={(e) => setAndBeforeLast(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
-          />
-          <label htmlFor="builder-and-before-last" className="text-xs text-charcoal-900 cursor-pointer select-none">
-            <span className="font-semibold block text-xs">
-              And before last name
-            </span>
-            <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
-              If checked, insert &apos;and&apos; before the final author&apos;s name (e.g., A, B, and C).
-            </span>
-          </label>
+        {/* Checkboxes 2 & 3: Author separator options side by side */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Checkbox 2: A, B and C */}
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-border-light shadow-2xs">
+            <input
+              id="builder-and-no-comma"
+              type="checkbox"
+              checked={andStyle === 'no_comma'}
+              onChange={(e) => setAndStyle(e.target.checked ? 'no_comma' : 'none')}
+              className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
+            />
+            <label htmlFor="builder-and-no-comma" className="text-xs text-charcoal-900 cursor-pointer select-none">
+              <span className="font-semibold block text-xs">
+                A, B and C
+              </span>
+              <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
+                Insert &apos;and&apos; without comma before the final author.
+              </span>
+            </label>
+          </div>
+
+          {/* Checkbox 3: A, B, and C */}
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-border-light shadow-2xs">
+            <input
+              id="builder-and-comma"
+              type="checkbox"
+              checked={andStyle === 'comma'}
+              onChange={(e) => setAndStyle(e.target.checked ? 'comma' : 'none')}
+              className="mt-0.5 h-4 w-4 rounded border-border-light text-indigo-brand focus:ring-indigo-brand cursor-pointer"
+            />
+            <label htmlFor="builder-and-comma" className="text-xs text-charcoal-900 cursor-pointer select-none">
+              <span className="font-semibold block text-xs">
+                A, B, and C
+              </span>
+              <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
+                Insert &apos;, and&apos; with Oxford comma before the final author.
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 

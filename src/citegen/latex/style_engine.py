@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from citegen.latex.author_format import escape_latex, format_author_list
 from citegen.metadata.models import ArticleMetadata, Author
@@ -181,17 +181,18 @@ def format_authors_by_variant(
     authors: List[Author],
     variant: str,
     truncate_over_7: bool = True,
+    author_threshold: int = 7,
 ) -> str:
     """
     Formats the entire author list based on the requested variant.
-    Preserves CiteFlow <= 7 and > 7 rule:
-    - If truncate_over_7 is True and > 7 authors: first author followed by '\\textit{et al.}'
+    Preserves CiteFlow <= threshold and > threshold rule:
+    - If truncate_over_7 is True and > author_threshold authors: first author followed by '\\textit{et al.}'
     - Otherwise: formats all authors with appropriate delimiters
     """
     if not authors:
         return "Anonymous"
 
-    if truncate_over_7 and len(authors) > 7:
+    if truncate_over_7 and len(authors) > author_threshold:
         first = format_single_author_style(authors[0], variant)
         return f"{first} \\textit{{et al.}}"
 
@@ -257,14 +258,15 @@ def format_authors_from_components(
     order: str,
     dotted: bool,
     has_middle: bool,
-    and_before_last: bool,
+    and_before_last: Union[str, bool],
     truncate_over_7: bool,
+    author_threshold: int = 7,
 ) -> str:
     """Formats the list of authors based on component variables and builder flags."""
     if not authors:
         return "Anonymous"
 
-    if truncate_over_7 and len(authors) > 7:
+    if truncate_over_7 and len(authors) > author_threshold:
         first = format_author_by_template_tokens(authors[0], order, dotted, has_middle)
         return f"{first} \\textit{{et al.}}"
 
@@ -272,12 +274,26 @@ def format_authors_from_components(
     if len(formatted) == 1:
         return formatted[0]
 
-    if and_before_last:
+    # Normalize and_before_last mode:
+    # 'no_comma' -> IOP style: "A, B and C"
+    # 'comma' (or True) -> AIP style: "A, B, and C"
+    # 'none' (or False) -> Plain comma: "A, B, C"
+    if and_before_last is True or and_before_last == "comma":
+        mode = "comma"
+    elif and_before_last == "no_comma":
+        mode = "no_comma"
+    else:
+        mode = "none"
+
+    if mode in ("no_comma", "comma"):
         if len(formatted) == 2:
             return f"{formatted[0]} and {formatted[1]}"
         else:
             all_except_last = ", ".join(formatted[:-1])
-            return f"{all_except_last}, and {formatted[-1]}"
+            if mode == "no_comma":
+                return f"{all_except_last} and {formatted[-1]}"
+            else:
+                return f"{all_except_last}, and {formatted[-1]}"
     else:
         return ", ".join(formatted)
 
@@ -322,6 +338,7 @@ def format_bibitem_with_style(
     template: str,
     citation_key: str = "DRAFT",
     truncate_over_7: Optional[bool] = None,
+    author_threshold: Optional[int] = None,
 ) -> str:
     """
     Renders a LaTeX \\bibitem string according to a customizable citation style template.
@@ -346,7 +363,19 @@ def format_bibitem_with_style(
     else:
         should_truncate = True
 
-    and_before_last = "% and_before_last: true" in lower_tpl
+    # Determine author threshold count (default 7, min 1)
+    if author_threshold is not None:
+        threshold = max(1, author_threshold)
+    else:
+        threshold_match = re.search(r"%\s*author_threshold:\s*(\d+)", lower_tpl)
+        threshold = max(1, int(threshold_match.group(1))) if threshold_match else 7
+
+    if "% and_before_last: no_comma" in lower_tpl:
+        and_before_last = "no_comma"
+    elif "% and_before_last: comma" in lower_tpl or "% and_before_last: true" in lower_tpl:
+        and_before_last = "comma"
+    else:
+        and_before_last = "none"
 
     # 1. Author formatting according to template tag, plain variable, or fine-grained components
     author_tokens = list(
@@ -377,6 +406,7 @@ def format_bibitem_with_style(
             has_middle=has_middle,
             and_before_last=and_before_last,
             truncate_over_7=should_truncate,
+            author_threshold=threshold,
         )
         result = result[:start_pos] + authors_val + result[end_pos:]
     elif len(author_tokens) == 1:
@@ -390,6 +420,7 @@ def format_bibitem_with_style(
                 has_middle=False,
                 and_before_last=and_before_last,
                 truncate_over_7=should_truncate,
+                author_threshold=threshold,
             )
         else:
             authors_val = format_authors_from_components(
@@ -399,44 +430,45 @@ def format_bibitem_with_style(
                 has_middle=False,
                 and_before_last=and_before_last,
                 truncate_over_7=should_truncate,
+                author_threshold=threshold,
             )
         result = result[:t.start()] + authors_val + result[t.end():]
     elif "authors last first ." in lower_tpl:
         # Undotted initials with sentence trailing period (space before dot)
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate) + "."
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate, author_threshold=threshold) + "."
         result = re.sub(r"(?i)\bauthors\s+last\s+first\s+\.", lambda _: authors_val, result)
     elif "authors last first.." in lower_tpl:
         # Dotted initials with extra sentence trailing period
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate) + "."
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate, author_threshold=threshold) + "."
         result = re.sub(r"(?i)\bauthors\s+last\s+first\.\.", lambda _: authors_val, result)
     elif "<authors_last_first(.)>" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)<authors_last_first\(\.\)>", lambda _: authors_val, result)
     elif "authors last first." in lower_tpl:
         # Surname first, dotted initials (Ghosh S., Chattopadhyay P. K.)
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_DOTS", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)\bauthors\s+last\s+first\.", lambda _: authors_val, result)
     elif "<authors_last_first()>" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)<authors_last_first\(\)>", lambda _: authors_val, result)
     elif "authors last first" in lower_tpl:
         # Surname first, undotted compressed initials without trailing dot (Ghosh S, Chattopadhyay PK)
-        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "LAST_FIRST_NODOTS", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)\bauthors\s+last\s+first\b", lambda _: authors_val, result)
     elif "authors first. last" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "FIRST_DOTS_LAST", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "FIRST_DOTS_LAST", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)\bauthors\s+first\.\s+last\b", lambda _: authors_val, result)
     elif "<authors_first(.)_last>" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "FIRST_DOTS_LAST", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "FIRST_DOTS_LAST", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)<authors_first\(\.\)_last>", lambda _: authors_val, result)
     elif "authors first last" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "FIRST_NODOTS_LAST", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "FIRST_NODOTS_LAST", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)\bauthors\s+first\s+last\b", lambda _: authors_val, result)
     elif "<authors_first()_last>" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "FIRST_NODOTS_LAST", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "FIRST_NODOTS_LAST", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)<authors_first\(\)_last>", lambda _: authors_val, result)
     elif "authors" in lower_tpl or "<authors>" in lower_tpl:
-        authors_val = format_authors_by_variant(meta.authors, "DEFAULT", truncate_over_7=should_truncate)
+        authors_val = format_authors_by_variant(meta.authors, "DEFAULT", truncate_over_7=should_truncate, author_threshold=threshold)
         result = re.sub(r"(?i)<authors>", lambda _: authors_val, result)
         result = re.sub(r"(?i)(?<!\\)\bauthors\b(?!\s+(?:last|first))", lambda _: authors_val, result)
 

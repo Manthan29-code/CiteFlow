@@ -129,19 +129,15 @@ export const StyleManagerDialog: React.FC = () => {
       isOpen={isOpen}
       onClose={handleClose}
       title={
-        mode === 'guide'
-          ? 'Allowed Variables & Fallback Rules'
-          : mode === 'editor'
+        mode === 'editor'
           ? editingStyleId
             ? 'Edit Citation Style'
             : 'Create New Citation Style'
           : 'Citation Styles Manager'
       }
       description={
-        mode === 'guide'
-          ? 'Complete reference for author representation variants, bibliographic variables, and fallback rules.'
-          : mode === 'editor'
-          ? 'Drag variables and text blocks to build your custom citation style.'
+        mode === 'editor'
+          ? undefined
           : 'Customize, create, and manage reference bibliography formats.'
       }
       maxWidth={mode === 'editor' ? '4xl' : '3xl'}
@@ -214,6 +210,12 @@ export const StyleManagerDialog: React.FC = () => {
                             <span className="font-semibold text-charcoal-900 text-sm truncate">
                               {style.name}
                             </span>
+                            {isSelected && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-medium bg-indigo-brand text-white shadow-2xs shrink-0">
+                                <Check className="w-3 h-3" />
+                                <span>Active</span>
+                              </span>
+                            )}
                           </div>
 
                           <div className="p-2 rounded-lg bg-charcoal-900/5 text-charcoal/70 font-mono text-[11px] leading-relaxed break-all border border-charcoal/10 select-all">
@@ -223,12 +225,7 @@ export const StyleManagerDialog: React.FC = () => {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                          {isSelected ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-brand text-white shadow-2xs">
-                              <Check className="w-3 h-3" />
-                              <span>Active</span>
-                            </span>
-                          ) : (
+                          {!isSelected && (
                             <Button
                               variant="ghost"
                               size="sm"
