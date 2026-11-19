@@ -39,6 +39,20 @@ export const StyleSelectorDropdown: React.FC = () => {
     dispatch(openStyleManagerModal());
   };
 
+  if (styles.length === 0) {
+    return (
+      <button
+        type="button"
+        onClick={handleOpenManager}
+        title="No citation styles available. Click to add a style."
+        className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-mono font-medium border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all cursor-pointer shadow-xs"
+      >
+        <Plus className="w-3.5 h-3.5 text-amber-700" />
+        <span>Add Style</span>
+      </button>
+    );
+  }
+
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
       <button

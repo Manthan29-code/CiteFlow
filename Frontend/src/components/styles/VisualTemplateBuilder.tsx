@@ -13,7 +13,6 @@ import {
   Eye,
   Loader2,
   AlertCircle,
-  BookOpen,
   ArrowLeft,
   ChevronDown,
 } from 'lucide-react';
@@ -30,6 +29,7 @@ export interface BuilderBlock {
   variable?: string;
   included?: boolean;
   isBold?: boolean;
+  isItalic?: boolean;
   isLink?: boolean;
 }
 
@@ -38,6 +38,7 @@ export interface VariableDef {
   label: string;
   category: 'author' | 'publication' | 'identification';
   supportsBold?: boolean;
+  supportsItalic?: boolean;
   supportsLink?: boolean;
 }
 
@@ -48,9 +49,9 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { id: 'middle name', label: 'middle name', category: 'author' },
 
   // Publication metadata
-  { id: 'title', label: 'title', category: 'publication' },
-  { id: 'journal', label: 'journal', category: 'publication' },
-  { id: 'journal abbr', label: 'journal abbr', category: 'publication' },
+  { id: 'title', label: 'title', category: 'publication', supportsItalic: true },
+  { id: 'journal', label: 'journal', category: 'publication', supportsItalic: true },
+  { id: 'journal abbr', label: 'journal abbr', category: 'publication', supportsItalic: true },
   { id: 'volume', label: 'volume', category: 'publication', supportsBold: true },
   { id: 'issue', label: 'issue', category: 'publication', supportsBold: true },
   { id: 'article number', label: 'article number', category: 'publication', supportsBold: true },
@@ -72,9 +73,9 @@ export const DEFAULT_INITIAL_BLOCKS: BuilderBlock[] = [
   { id: 'b_6', type: 'variable', variable: 'surname', included: true },
   { id: 'b_7', type: 'text', text: ', ' },
   { id: 'b_8', type: 'variable', variable: 'title', included: true },
-  { id: 'b_9', type: 'text', text: ', \\textit{' },
-  { id: 'b_10', type: 'variable', variable: 'journal', included: true },
-  { id: 'b_11', type: 'text', text: '}, vol. ' },
+  { id: 'b_9', type: 'text', text: ', ' },
+  { id: 'b_10', type: 'variable', variable: 'journal', included: true, isItalic: true },
+  { id: 'b_11', type: 'text', text: ', vol. ' },
   { id: 'b_12', type: 'variable', variable: 'volume', included: true, isBold: false },
   { id: 'b_13', type: 'text', text: ', no. ' },
   { id: 'b_14', type: 'variable', variable: 'issue', included: true, isBold: false },
@@ -115,13 +116,17 @@ export function serializeBlocksToTemplate(
         templateBody += ' ';
       }
 
+      let varStr = v;
       if (block.isBold && ['volume', 'issue', 'article number'].includes(v)) {
-        templateBody += `\\textbf{${v}}`;
-      } else if (block.isLink && (v === 'doi url' || v === 'doi')) {
-        templateBody += `\\href{doi url}{${v}}`;
-      } else {
-        templateBody += v;
+        varStr = `\\textbf{${varStr}}`;
       }
+      if (block.isItalic && ['journal', 'journal abbr', 'journal abbreviation', 'title'].includes(v)) {
+        varStr = `\\textit{${varStr}}`;
+      }
+      if (block.isLink && (v === 'doi url' || v === 'doi')) {
+        varStr = `\\href{doi url}{${varStr}}`;
+      }
+      templateBody += varStr;
     }
   }
 
@@ -141,6 +146,7 @@ export function serializeBlocksToTemplate(
       variable: b.variable,
       included: b.included !== false,
       isBold: !!b.isBold,
+      isItalic: !!b.isItalic,
       isLink: !!b.isLink,
     }));
 
@@ -225,7 +231,7 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
   ];
 
   const regex = new RegExp(
-    `(\\\\textbf\\{(?:volume|issue|article number)\\})|(\\\\href\\{doi url\\}\\{(?:doi url|doi)\\})|(${knownKeywords
+    `(\\\\textbf\\{(?:volume|issue|article number)\\})|(\\\\textit\\{(?:journal abbr|journal abbreviation|journal|title)\\})|(\\\\href\\{doi url\\}\\{(?:doi url|doi)\\})|(${knownKeywords
       .map((k) => k.replace('.', '\\.'))
       .join('|')})`,
     'gi'
@@ -248,6 +254,7 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
 
     const matchedStr = match[0];
     const boldMatch = matchedStr.match(/^\\textbf\{([^}]+)\}$/i);
+    const italicMatch = matchedStr.match(/^\\textit\{([^}]+)\}$/i);
     const hrefMatch = matchedStr.match(/^\\href\{doi\s+url\}\{(doi\s+url|doi)\}$/i);
 
     if (boldMatch) {
@@ -258,6 +265,20 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
         variable: v,
         included: true,
         isBold: true,
+        isItalic: false,
+      });
+    } else if (italicMatch) {
+      const lower = italicMatch[1].toLowerCase().trim();
+      let canonicalVar = lower;
+      if (lower === 'journal abbreviation') canonicalVar = 'journal abbr';
+      blocks.push({
+        id: `vb_${blockCounter++}`,
+        type: 'variable',
+        variable: canonicalVar,
+        included: true,
+        isBold: false,
+        isItalic: true,
+        isLink: false,
       });
     } else if (hrefMatch) {
       const v = hrefMatch[1].toLowerCase().trim();
@@ -267,6 +288,7 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
         variable: v,
         included: true,
         isBold: false,
+        isItalic: false,
         isLink: true,
       });
     } else {
@@ -282,6 +304,7 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
         variable: canonicalVar,
         included: true,
         isBold: false,
+        isItalic: false,
         isLink: false,
       });
     }
@@ -311,7 +334,6 @@ interface VisualTemplateBuilderProps {
   onChangeName: (name: string) => void;
   onChangeTemplate: (template: string) => void;
   onBack: () => void;
-  onOpenGuide: () => void;
   onSave: () => void;
   isSaving: boolean;
   isEdit: boolean;
@@ -325,7 +347,6 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
   onChangeName,
   onChangeTemplate,
   onBack,
-  onOpenGuide,
   onSave,
   isSaving,
   isEdit,
@@ -436,25 +457,22 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
     };
   }, [blocks, truncateAuthors, andBeforeLast]);
 
-  // Clean preview text wrapped in compilable thebibliography block
+  // Clean preview text without thebibliography wrapper
   const displayPreview = useMemo(() => {
     if (!livePreview) return '';
-    // Strip comment lines
+    // Strip comment lines and thebibliography lines
     const cleanLines = livePreview
       .split('\n')
       .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('%'));
+      .filter(
+        (l) =>
+          l &&
+          !l.startsWith('%') &&
+          !l.includes('\\begin{thebibliography}') &&
+          !l.includes('\\end{thebibliography}')
+      );
 
-    if (cleanLines.length === 0) return '';
-    const cleanText = cleanLines.join('\n');
-
-    // If already wrapped in thebibliography, return cleanText
-    if (cleanText.includes('\\begin{thebibliography}')) {
-      return cleanText;
-    }
-
-    // Wrap in standard \begin{thebibliography}{99} ... \end{thebibliography}
-    return `\\begin{thebibliography}{99}\n${cleanText}\n\\end{thebibliography}`;
+    return cleanLines.join('\n');
   }, [livePreview]);
 
   // Helper to count occurrences of variables
@@ -479,6 +497,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
       variable: varDef.id,
       included: true,
       isBold: false,
+      isItalic: false,
       isLink: varDef.supportsLink || false,
     };
 
@@ -532,6 +551,15 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
   const handleToggleBold = (id: string) => {
     const next = blocks.map((b) =>
       b.id === id ? { ...b, isBold: !b.isBold } : b
+    );
+    setBlocks(next);
+    recordHistory(next);
+  };
+
+  // Toggle italic
+  const handleToggleItalic = (id: string) => {
+    const next = blocks.map((b) =>
+      b.id === id ? { ...b, isItalic: !b.isItalic } : b
     );
     setBlocks(next);
     recordHistory(next);
@@ -621,18 +649,20 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
+          {/* Shifted Maximize / Fullscreen Button on Top Right with colored background */}
           <button
             type="button"
-            onClick={onOpenGuide}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono text-indigo-brand bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
-            title="View Variables & Rules Guide"
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            className="p-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-brand hover:bg-indigo-100 transition-colors cursor-pointer shadow-2xs flex items-center justify-center"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Maximize Workspace'}
+            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Maximize Workspace'}
           >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Variables Guide</span>
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
           </button>
-          <span className="text-[11px] font-mono text-charcoal/40 hidden sm:inline">
-            Type variable name for autocomplete
-          </span>
         </div>
       </div>
 
@@ -800,16 +830,6 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
           >
             <Redo2 className="w-3.5 h-3.5" />
           </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsFullscreen((prev) => !prev)}
-            className="p-1 rounded-lg text-charcoal/60 hover:text-charcoal-900 hover:bg-slate-100 transition-colors cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
         </div>
       </div>
 
@@ -869,17 +889,38 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                         <Check className="w-3 h-3 stroke-[3]" />
                       </button>
 
+                      {/* Italic Option for journal, journal abbr, title */}
+                      {['journal', 'journal abbr', 'journal abbreviation', 'title'].includes(block.variable || '') && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItalic(block.id)}
+                          title={block.isItalic ? 'Italic (Active)' : 'Make Italic'}
+                          className={cn(
+                            'w-5 h-5 rounded flex items-center justify-center text-xs transition-all cursor-pointer border select-none ml-1',
+                            block.isItalic
+                              ? 'bg-slate-300 border-slate-400 text-slate-900 font-bold shadow-2xs'
+                              : 'bg-white/80 border-slate-200 text-charcoal/60 hover:bg-slate-100 hover:text-charcoal-900'
+                          )}
+                        >
+                          <span className="italic font-serif font-bold">I</span>
+                        </button>
+                      )}
+
                       {/* Bold Option for volume, issue, article number */}
                       {['volume', 'issue', 'article number'].includes(block.variable || '') && (
-                        <label className="flex items-center gap-1 ml-1 text-[11px] font-sans text-charcoal/70 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!!block.isBold}
-                            onChange={() => handleToggleBold(block.id)}
-                            className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                          />
-                          <span>Bold</span>
-                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBold(block.id)}
+                          title={block.isBold ? 'Bold (Active)' : 'Make Bold'}
+                          className={cn(
+                            'w-5 h-5 rounded flex items-center justify-center text-xs transition-all cursor-pointer border select-none ml-1',
+                            block.isBold
+                              ? 'bg-slate-300 border-slate-400 text-slate-900 font-extrabold shadow-2xs'
+                              : 'bg-white/80 border-slate-200 text-charcoal/60 hover:bg-slate-100 hover:text-charcoal-900 font-bold'
+                          )}
+                        >
+                          <span className="font-bold">B</span>
+                        </button>
                       )}
 
                       {/* Link Option for doi, doi url */}
@@ -1009,7 +1050,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-mono text-charcoal/60 uppercase tracking-wider flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5 text-indigo-brand" />
-            <span>LIVE PREVIEW (GHOSH 2017 SAMPLE)</span>
+            <span>LIVE PREVIEW</span>
           </span>
 
           <div className="flex items-center gap-2">

@@ -6,7 +6,7 @@ import {
   Copy,
   Check,
   Loader2,
-  BookOpen,
+  Palette,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { closeStyleManagerModal, addToast } from '@/store/slices/uiSlice';
@@ -21,7 +21,6 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { CitationStyle } from '@/types/api';
 import { cn } from '@/lib/utils';
-import { VariablesGuide } from '@/components/styles/VariablesGuide';
 import { VisualTemplateBuilder } from '@/components/styles/VisualTemplateBuilder';
 
 export const StyleManagerDialog: React.FC = () => {
@@ -31,8 +30,7 @@ export const StyleManagerDialog: React.FC = () => {
     (state) => state.styles
   );
 
-  const [mode, setMode] = useState<'list' | 'editor' | 'guide'>('list');
-  const [previousMode, setPreviousMode] = useState<'list' | 'editor'>('list');
+  const [mode, setMode] = useState<'list' | 'editor'>('list');
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
   const [template, setTemplate] = useState<string>('');
@@ -50,9 +48,6 @@ export const StyleManagerDialog: React.FC = () => {
     }
   }, [isOpen, dispatch]);
 
-  const isProtectedStyle = (style: CitationStyle) =>
-    style.slug === 'iop-default' || style.name.trim().toLowerCase() === 'iop';
-
   const handleOpenCreate = (baseTemplate?: string, baseName?: string) => {
     setEditingStyleId(null);
     const initialName = baseName ? `${baseName} (Copy)` : 'My Custom Style';
@@ -65,7 +60,6 @@ export const StyleManagerDialog: React.FC = () => {
   };
 
   const handleOpenEdit = (style: CitationStyle) => {
-    if (isProtectedStyle(style)) return;
     setEditingStyleId(style.id);
     setName(style.name);
     setTemplate(style.template);
@@ -150,18 +144,10 @@ export const StyleManagerDialog: React.FC = () => {
           ? 'Drag variables and text blocks to build your custom citation style.'
           : 'Customize, create, and manage reference bibliography formats.'
       }
-      maxWidth={mode === 'guide' || mode === 'editor' ? '4xl' : '3xl'}
+      maxWidth={mode === 'editor' ? '4xl' : '3xl'}
     >
       <div className="space-y-4">
-        {mode === 'guide' ? (
-          <VariablesGuide
-            onBack={() => setMode(previousMode)}
-            backLabel={previousMode === 'editor' ? 'Back to Style Editor' : 'Back to Styles List'}
-            onSelectTag={() => {
-              // Informational in visual builder
-            }}
-          />
-        ) : mode === 'list' ? (
+        {mode === 'list' ? (
           <>
             {/* Action Bar */}
             <div className="flex items-center justify-between pb-2 border-b border-border-light">
@@ -169,21 +155,6 @@ export const StyleManagerDialog: React.FC = () => {
                 {styles.length} Available Styles
               </span>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPreviousMode('list');
-                    setMode('guide');
-                  }}
-                  className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100/70"
-                  title="View Allowed Variables & Fallback Rules"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Variables Guide</span>
-                  <span className="sm:hidden">Guide</span>
-                </Button>
-
                 <Button
                   variant="primary"
                   size="sm"
@@ -202,6 +173,25 @@ export const StyleManagerDialog: React.FC = () => {
                 <div className="py-12 flex flex-col items-center justify-center text-charcoal/50">
                   <Loader2 className="w-6 h-6 animate-spin text-indigo-brand mb-2" />
                   <span className="text-xs font-mono">Loading styles...</span>
+                </div>
+              ) : styles.length === 0 ? (
+                <div className="py-12 px-4 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-3 text-indigo-brand">
+                    <Palette className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-charcoal-900 mb-1">No Citation Styles Available</h3>
+                  <p className="text-xs text-charcoal/60 max-w-sm mb-4">
+                    All citation styles have been removed. You need at least one citation style to generate bibliographies.
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenCreate()}
+                    className="gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create Style</span>
+                  </Button>
                 </div>
               ) : (
                 styles.map((style) => {
@@ -270,50 +260,46 @@ export const StyleManagerDialog: React.FC = () => {
                           </Button>
 
                           {/* Edit Icon Button */}
-                          {!isProtectedStyle(style) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenEdit(style)}
+                            className="p-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/40 hover:bg-indigo-100/60"
+                            title="Edit Style"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+
+                          {/* Delete Icon Button */}
+                          {isConfirmingDelete ? (
+                            <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleDelete(style.id, style.name)}
+                                className="bg-red-600 hover:bg-red-700 text-white h-6 px-1.5 text-[11px]"
+                              >
+                                Confirm
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="h-6 px-1.5 text-[11px]"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleOpenEdit(style)}
-                              className="p-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/40 hover:bg-indigo-100/60"
-                              title="Edit Style"
+                              onClick={() => setDeleteConfirmId(style.id)}
+                              className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-white"
+                              title="Delete Style"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
-                          )}
-
-                          {/* Delete Icon Button */}
-                          {!isProtectedStyle(style) && (
-                            isConfirmingDelete ? (
-                              <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg border border-red-200">
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => handleDelete(style.id, style.name)}
-                                  className="bg-red-600 hover:bg-red-700 text-white h-6 px-1.5 text-[11px]"
-                                >
-                                  Confirm
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setDeleteConfirmId(null)}
-                                  className="h-6 px-1.5 text-[11px]"
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setDeleteConfirmId(style.id)}
-                                className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-white"
-                                title="Delete Style"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            )
                           )}
                         </div>
                       </div>
@@ -331,18 +317,10 @@ export const StyleManagerDialog: React.FC = () => {
             onChangeName={(newName) => setName(newName)}
             onChangeTemplate={(newTpl) => setTemplate(newTpl)}
             onBack={() => setMode('list')}
-            onOpenGuide={() => {
-              setPreviousMode('editor');
-              setMode('guide');
-            }}
             onSave={handleSave}
             isSaving={isSaving}
             isEdit={!!editingStyleId}
-            isProtected={
-              editingStyleId
-                ? isProtectedStyle(styles.find((s) => s.id === editingStyleId) || ({} as CitationStyle))
-                : false
-            }
+            isProtected={false}
             onDelete={() => {
               const s = styles.find((x) => x.id === editingStyleId);
               if (s) {

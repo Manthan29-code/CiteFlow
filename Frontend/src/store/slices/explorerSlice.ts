@@ -7,6 +7,7 @@ import { env } from '@/lib/env';
 export interface ExplorerState {
   currentFolderId: string;
   folderData: FolderDetailResponse | null;
+  folderTree: Record<string, Folder[]>;
   isLoading: boolean;
   isLoadingMore: boolean;
   error: string | null;
@@ -19,6 +20,7 @@ export interface ExplorerState {
 const initialState: ExplorerState = {
   currentFolderId: 'root',
   folderData: null,
+  folderTree: {},
   isLoading: true,
   isLoadingMore: false,
   error: null,
@@ -82,6 +84,12 @@ export const explorerSlice = createSlice({
     setViewMode(state, action: PayloadAction<'list' | 'grid'>) {
       state.viewMode = action.payload;
     },
+    setFolderTreeChildren(
+      state,
+      action: PayloadAction<{ folderId: string; children: Folder[] }>
+    ) {
+      state.folderTree[action.payload.folderId] = action.payload.children;
+    },
     optimisticRemoveFile(state, action: PayloadAction<string>) {
       if (state.folderData) {
         state.folderData.files = state.folderData.files.filter((f) => f.id !== action.payload);
@@ -91,13 +99,44 @@ export const explorerSlice = createSlice({
       }
     },
     optimisticRemoveFolder(state, action: PayloadAction<string>) {
+      const deletedId = action.payload;
       if (state.folderData) {
-        state.folderData.folders = state.folderData.folders.filter((f) => f.id !== action.payload);
+        state.folderData.folders = state.folderData.folders.filter((f) => f.id !== deletedId);
       }
+      Object.keys(state.folderTree).forEach((key) => {
+        state.folderTree[key] = state.folderTree[key].filter((f) => f.id !== deletedId);
+      });
+      delete state.folderTree[deletedId];
     },
     optimisticAddFolder(state, action: PayloadAction<Folder>) {
+      const newFolder = action.payload;
       if (state.folderData) {
-        state.folderData.folders = [action.payload, ...state.folderData.folders];
+        if (!state.folderData.folders.some((f) => f.id === newFolder.id)) {
+          state.folderData.folders = [newFolder, ...state.folderData.folders];
+        }
+      }
+
+      const parentId = newFolder.parent_id;
+      const isRootParent =
+        !parentId ||
+        (state.folderData?.folder.id === parentId && !state.folderData.folder.parent_id);
+
+      if (isRootParent) {
+        const currentRoot = state.folderTree['root'] || [];
+        if (!currentRoot.some((f) => f.id === newFolder.id)) {
+          state.folderTree['root'] = [newFolder, ...currentRoot];
+        }
+        if (parentId) {
+          const currentParent = state.folderTree[parentId] || [];
+          if (!currentParent.some((f) => f.id === newFolder.id)) {
+            state.folderTree[parentId] = [newFolder, ...currentParent];
+          }
+        }
+      } else if (parentId) {
+        const currentParent = state.folderTree[parentId] || [];
+        if (!currentParent.some((f) => f.id === newFolder.id)) {
+          state.folderTree[parentId] = [newFolder, ...currentParent];
+        }
       }
     },
     optimisticAddFile(state, action: PayloadAction<FileItem>) {
@@ -126,6 +165,13 @@ export const explorerSlice = createSlice({
         state.folderData = action.payload;
         state.error = null;
         state.isNotFound = false;
+
+        if (action.payload) {
+          state.folderTree[action.payload.folder.id] = action.payload.folders;
+          if (!action.payload.folder.parent_id || action.meta.arg === 'root') {
+            state.folderTree['root'] = action.payload.folders;
+          }
+        }
       })
       .addCase(fetchFolder.rejected, (state, action) => {
         state.isLoading = false;
@@ -152,6 +198,11 @@ export const explorerSlice = createSlice({
             ...action.payload.files,
           ];
           state.folderData.next_cursor = action.payload.next_cursor;
+
+          state.folderTree[state.folderData.folder.id] = state.folderData.folders;
+          if (!state.folderData.folder.parent_id) {
+            state.folderTree['root'] = state.folderData.folders;
+          }
         }
       })
       .addCase(loadMoreFolderItems.rejected, (state) => {
@@ -165,6 +216,7 @@ export const {
   setSelectedFileId,
   setSearchQuery,
   setViewMode,
+  setFolderTreeChildren,
   optimisticRemoveFile,
   optimisticRemoveFolder,
   optimisticAddFolder,

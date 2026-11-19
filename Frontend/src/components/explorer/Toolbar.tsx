@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { FolderPlus, Upload, Search, X, Sparkles, Loader2, FileText } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
+import { openNewFolderModal, openStyleManagerModal, addToast } from '@/store/slices/uiSlice';
 import { setSearchQuery } from '@/store/slices/explorerSlice';
 import { setJobs, openGroupedTexModal } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
@@ -20,7 +20,7 @@ export const Toolbar: React.FC = () => {
   const { searchQuery, folderData } = useAppSelector((state) => state.explorer);
   const jobsById = useAppSelector((state) => state.jobs.jobsById);
   const jobsByFileId = useAppSelector((state) => state.jobs.jobsByFileId);
-  const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
+  const { styles, selectedStyleId } = useAppSelector((state) => state.styles);
   const currentFolder = folderData?.folder;
 
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -102,6 +102,18 @@ export const Toolbar: React.FC = () => {
 
   const handleGenerateFolderCitations = async () => {
     if (!currentFolder?.id || isBatchGenerating) return;
+
+    if (styles.length === 0) {
+      dispatch(
+        addToast({
+          type: 'error',
+          message: "You can't generate citations when you don't have any citation style. Please add a style first.",
+        })
+      );
+      dispatch(openStyleManagerModal());
+      return;
+    }
+
     setIsBatchGenerating(true);
     try {
       const jobs = await createFolderJobs(currentFolder.id, 'standalone', selectedStyleId);

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FileText, ChevronDown, Check, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setJob, setStartingJob, openJobDrawer } from '@/store/slices/jobsSlice';
-import { addToast } from '@/store/slices/uiSlice';
+import { addToast, openStyleManagerModal } from '@/store/slices/uiSlice';
 import { createJob } from '@/api/jobs';
 import { ApiError, getErrorMessage } from '@/api/errors';
 import { TexMode } from '@/types/api';
@@ -25,7 +25,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const isStarting = useAppSelector((state) => state.jobs.isStartingJobByFileId[fileId] || false);
-  const selectedStyleId = useAppSelector((state) => state.styles.selectedStyleId);
+  const { styles, selectedStyleId } = useAppSelector((state) => state.styles);
 
   const [texMode, setTexMode] = useState<TexMode>('standalone');
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
@@ -56,6 +56,17 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({
   const handleStartJob = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isStarting || disabled) return;
+
+    if (styles.length === 0) {
+      dispatch(
+        addToast({
+          type: 'error',
+          message: "You can't generate citations without any citation style. Please add a style first.",
+        })
+      );
+      dispatch(openStyleManagerModal());
+      return;
+    }
 
     // Immediately disable button to prevent double clicks
     dispatch(setStartingJob({ fileId, isStarting: true }));

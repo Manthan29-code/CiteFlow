@@ -205,13 +205,6 @@ class CitationStyleService:
                 message=f"Citation style '{style_id}' not found.",
             )
 
-        if style.slug == "iop-default" or style.name.strip().lower() == "iop":
-            raise AppError(
-                status_code=403,
-                code="cannot_modify_default_style",
-                message="The default IOP citation style cannot be modified.",
-            )
-
         if style.owner_id is not None and style.owner_id != owner_id:
             raise AppError(
                 status_code=404,
@@ -297,13 +290,6 @@ class CitationStyleService:
                 status_code=404,
                 code="style_not_found",
                 message=f"Citation style '{style_id}' not found.",
-            )
-
-        if style.slug == "iop-default" or style.name.strip().lower() == "iop":
-            raise AppError(
-                status_code=403,
-                code="cannot_delete_default_style",
-                message="The default IOP citation style cannot be deleted.",
             )
 
         if style.owner_id is not None and style.owner_id != owner_id:

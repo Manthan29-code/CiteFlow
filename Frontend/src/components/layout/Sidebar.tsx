@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openNewFolderModal, openStyleManagerModal } from '@/store/slices/uiSlice';
+import { setFolderTreeChildren } from '@/store/slices/explorerSlice';
 import { getFolderDetails, getRootFolder } from '@/api/folders';
 import { Folder } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -26,20 +27,67 @@ interface TreeNodeProps {
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({ id, name, depth, currentFolderId, onSelect }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [children, setChildren] = useState<Folder[]>([]);
+  const dispatch = useAppDispatch();
+  const [isExpanded, setIsExpanded] = useState<boolean>(depth === 0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const isSelected = currentFolderId === id || (id === 'root' && currentFolderId === 'root');
+
+  const currentFolder = useAppSelector((state) => state.explorer.folderData?.folder);
+  const currentFolders = useAppSelector((state) => state.explorer.folderData?.folders);
+  const folderTree = useAppSelector((state) => state.explorer.folderTree);
+
+  const isRootNode =
+    id === 'root' ||
+    (currentFolder !== undefined && currentFolder !== null && !currentFolder.parent_id && currentFolder.id === id);
+
+  const isCurrentFolder = isRootNode
+    ? (!currentFolder?.parent_id || currentFolderId === 'root')
+    : currentFolder?.id === id;
+
+  const treeChildren =
+    folderTree[id] ??
+    (isRootNode ? folderTree['root'] : undefined) ??
+    (isCurrentFolder && currentFolders ? currentFolders : undefined);
+
+  const children = treeChildren || [];
+
+  const isSelected =
+    currentFolderId === id ||
+    (isRootNode && (currentFolderId === 'root' || currentFolder?.id === id));
+
+  // Automatically expand if a new child folder was created inside this node
+  useEffect(() => {
+    if (children.length > 0 && depth === 0) {
+      setIsExpanded(true);
+    }
+  }, [children.length, depth]);
 
   const toggleExpand = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isExpanded) {
       setIsExpanded(true);
-      if (children.length === 0) {
+      const hasLoaded =
+        folderTree[id] !== undefined ||
+        (isRootNode && folderTree['root'] !== undefined) ||
+        (isCurrentFolder && currentFolders !== undefined);
+
+      if (!hasLoaded) {
         setIsLoading(true);
         try {
           const res = id === 'root' ? await getRootFolder() : await getFolderDetails(id);
-          setChildren(res.folders || []);
+          dispatch(
+            setFolderTreeChildren({
+              folderId: id,
+              children: res.folders || [],
+            })
+          );
+          if (isRootNode) {
+            dispatch(
+              setFolderTreeChildren({
+                folderId: 'root',
+                children: res.folders || [],
+              })
+            );
+          }
         } catch {
           // silently handle error in tree
         } finally {

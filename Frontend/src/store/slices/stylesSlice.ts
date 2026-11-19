@@ -127,6 +127,9 @@ export const stylesSlice = createSlice({
       .addCase(fetchStyles.fulfilled, (state, action) => {
         state.isLoading = false;
         state.styles = action.payload;
+        if (state.selectedStyleId && !action.payload.some((s) => s.id === state.selectedStyleId)) {
+          state.selectedStyleId = action.payload.length > 0 ? action.payload[0].id : null;
+        }
         // Default to the first built-in style if not yet selected
         if (!state.selectedStyleId && action.payload.length > 0) {
           const defaultIop = action.payload.find((s) => s.slug === 'iop-default') || action.payload[0];
