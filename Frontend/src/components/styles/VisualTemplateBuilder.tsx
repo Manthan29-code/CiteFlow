@@ -1110,8 +1110,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
             </div>
 
             <span className="text-[11px] text-charcoal/60 leading-normal block mt-1">
-              If checked, citations with more than the specified number of authors only show the first author followed by{' '}
-              <code className="font-mono text-indigo-brand">\textit&#123;et al.&#125;</code>. If unchecked, all authors are shown.
+              Show first author followed by <em className="italic font-medium text-charcoal-700">et al.</em> when authors exceed this limit.
             </span>
           </div>
         </div>
