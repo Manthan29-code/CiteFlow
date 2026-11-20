@@ -1105,7 +1105,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
               </div>
 
               <label htmlFor="builder-truncate-authors" className="cursor-pointer">
-                authors (Threshold Rule)
+                authors 
               </label>
             </div>
 
