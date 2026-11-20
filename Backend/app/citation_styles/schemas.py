@@ -6,12 +6,12 @@ from pydantic import BaseModel, Field
 
 class CitationStyleCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100, description="Display name of the citation style")
-    template: str = Field(min_length=5, max_length=2000, description="LaTeX \\bibitem template with <TAG> fields")
+    template: str = Field(min_length=5, max_length=1000, description="LaTeX \\bibitem template with <TAG> fields")
 
 
 class CitationStyleUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    template: Optional[str] = Field(default=None, min_length=5, max_length=2000)
+    template: Optional[str] = Field(default=None, min_length=5, max_length=1000)
 
 
 class CitationStyleResponse(BaseModel):

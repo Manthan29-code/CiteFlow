@@ -95,7 +95,7 @@ export function serializeBlocksToTemplate(
   blocks: BuilderBlock[],
   truncateAuthors: boolean,
   andStyle: AndStyle | boolean,
-  includeStateComment: boolean = true,
+  includeStateComment: boolean = false,
   authorThreshold: number = 7
 ): string {
   let templateBody = '';
@@ -135,38 +135,13 @@ export function serializeBlocksToTemplate(
   const directives: string[] = [];
   if (!truncateAuthors) {
     directives.push('% truncate_authors: false');
-  } else {
-    directives.push(`% author_threshold: ${Math.max(1, authorThreshold || 7)}`);
+  } else if (authorThreshold && authorThreshold !== 7) {
+    directives.push(`% author_threshold: ${Math.max(1, authorThreshold)}`);
   }
   if (andStyle === 'no_comma') {
     directives.push('% and_before_last: no_comma');
   } else if (andStyle === 'comma' || andStyle === true) {
     directives.push('% and_before_last: comma');
-  }
-
-  if (includeStateComment) {
-    const cleanBlocks = blocks.map((b) => ({
-      id: b.id,
-      type: b.type,
-      text: b.text,
-      variable: b.variable,
-      included: b.included !== false,
-      isBold: !!b.isBold,
-      isItalic: !!b.isItalic,
-      isLink: !!b.isLink,
-    }));
-
-    const resolvedAndStyle: AndStyle =
-      typeof andStyle === 'boolean' ? (andStyle ? 'comma' : 'none') : andStyle;
-
-    const stateJson = JSON.stringify({
-      blocks: cleanBlocks,
-      truncateAuthors,
-      authorThreshold: Math.max(1, authorThreshold || 7),
-      andStyle: resolvedAndStyle,
-      andBeforeLast: resolvedAndStyle !== 'none',
-    });
-    directives.push(`% builder_state: ${stateJson}`);
   }
 
   return directives.length > 0

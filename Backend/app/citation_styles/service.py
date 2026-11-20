@@ -35,65 +35,17 @@ class CitationStyleService:
     async def list_styles(cls, db: AsyncSession, owner_id: UUID) -> List[CitationStyle]:
         """
         Lists all styles accessible to the user:
-        - built-in system styles (excluding any that the user has deleted or overridden)
-        - custom styles owned by owner_id (excluding tombstones)
+        - only custom styles owned by owner_id (excluding tombstones)
+        - new accounts start with no citation styles
         """
-        # 1. Fetch user-owned styles
-        user_stmt = select(CitationStyle).where(CitationStyle.owner_id == owner_id)
+        user_stmt = select(CitationStyle).where(CitationStyle.owner_id == owner_id).order_by(CitationStyle.created_at.asc())
         user_records = list((await db.execute(user_stmt)).scalars().all())
 
-        deleted_slugs = {
-            s.slug.replace("deleted:", "")
-            for s in user_records
-            if s.slug.startswith("deleted:")
-        }
         active_user_styles = [
             s for s in user_records
             if not s.slug.startswith("deleted:")
         ]
-        user_slugs = {s.slug for s in active_user_styles}
-
-        # 2. Fetch system built-in styles
-        builtin_stmt = (
-            select(CitationStyle)
-            .where(CitationStyle.is_builtin.is_(True))
-            .order_by(CitationStyle.created_at.asc())
-        )
-        builtin_records = list((await db.execute(builtin_stmt)).scalars().all())
-
-        # Auto-sync built-in presets only for the core IOP default style
-        needs_commit = False
-        for s in builtin_records:
-            if s.slug == "iop-default":
-                canonical = BUILTIN_PRESET_TEMPLATES["iop-default"]
-                if s.template != canonical:
-                    s.template = canonical
-                    s.updated_at = utc_now()
-                    db.add(s)
-                    needs_commit = True
-                if s.name != "IOP":
-                    s.name = "IOP"
-                    s.updated_at = utc_now()
-                    db.add(s)
-                    needs_commit = True
-
-        if needs_commit:
-            try:
-                await db.commit()
-            except Exception:
-                await db.rollback()
-
-        # 3. Filter built-in styles: exclude deleted or overridden ones
-        visible_builtins = [
-            s for s in builtin_records
-            if s.slug not in deleted_slugs and s.slug not in user_slugs
-        ]
-
-        # Put IOP first, then remaining built-ins, then custom styles
-        iop_styles = [s for s in visible_builtins if s.slug == "iop-default"]
-        other_builtins = [s for s in visible_builtins if s.slug != "iop-default"]
-
-        return iop_styles + other_builtins + active_user_styles
+        return active_user_styles
 
     @classmethod
     async def get_style(cls, db: AsyncSession, owner_id: UUID, style_id: UUID) -> CitationStyle:
@@ -278,10 +230,32 @@ class CitationStyleService:
     async def delete_style(cls, db: AsyncSession, owner_id: UUID, style_id: UUID) -> None:
         """
         Deletes a citation style for this user.
-        - Default IOP cannot be deleted.
-        - For built-in styles (IEEE, AMA), marks a tombstone for this user so other users are unaffected.
-        - For custom styles, deletes the user's record.
+        - If user has generated citations and only 1 style remaining, block deletion.
+        - If user has 0 citations, allow deleting all styles (including the last one).
+        - If a style is deleted and user has remaining styles, reassign existing citations
+          to the user's latest remaining style in their library.
         """
+        from app.db.models.job import Job
+        from sqlalchemy import func, select, update
+
+        user_styles = await cls.list_styles(db, owner_id)
+        remaining_styles = [s for s in user_styles if s.id != style_id]
+
+        if not remaining_styles:
+            # User is attempting to delete their only remaining style
+            # Check if user has any generated citations
+            has_citations_stmt = select(func.count(Job.id)).where(
+                Job.owner_id == owner_id,
+                Job.result_tex.isnot(None),
+            )
+            citation_count = (await db.execute(has_citations_stmt)).scalar() or 0
+            if citation_count > 0:
+                raise AppError(
+                    status_code=400,
+                    code="cannot_delete_last_style_with_citations",
+                    message="You cannot delete your only citation style while you have generated citations.",
+                )
+
         stmt = select(CitationStyle).where(CitationStyle.id == style_id)
         style = (await db.execute(stmt)).scalar_one_or_none()
 
@@ -299,17 +273,35 @@ class CitationStyleService:
                 message=f"Citation style '{style_id}' not found.",
             )
 
-        from app.db.models.job import Job
-        from sqlalchemy import update
+        # Fallback handling:
+        # If user has remaining styles, reassign jobs referencing the deleted style to the latest remaining style
+        if remaining_styles:
+            fallback_style = remaining_styles[-1]
+            from citegen.api import render_single_record
+            from citegen.metadata.models import ArticleMetadata
 
-        # Unlink only this user's jobs referencing this style
-        await db.execute(
-            update(Job)
-            .where(Job.owner_id == owner_id, Job.style_id == style_id)
-            .values(style_id=None)
-        )
+            jobs_stmt = select(Job).where(Job.owner_id == owner_id, Job.style_id == style_id)
+            affected_jobs = list((await db.execute(jobs_stmt)).scalars().all())
+            for job in affected_jobs:
+                job.style_id = fallback_style.id
+                if job.result_metadata:
+                    meta = ArticleMetadata(**job.result_metadata)
+                    job.result_tex = render_single_record(
+                        meta,
+                        template=fallback_style.template,
+                        standalone=(job.tex_mode == "standalone"),
+                    )
+                    job.updated_at = utc_now()
+                    db.add(job)
+        else:
+            # No remaining styles (user has 0 citations anyway)
+            await db.execute(
+                update(Job)
+                .where(Job.owner_id == owner_id, Job.style_id == style_id)
+                .values(style_id=None)
+            )
 
-        # Case 1: Built-in style -> Do NOT delete shared row! Record tombstone for this user only.
+        # Case 1: Built-in style -> Record tombstone for this user only
         if style.owner_id is None:
             tombstone = CitationStyle(
                 owner_id=owner_id,

@@ -172,7 +172,7 @@ export const stylesSlice = createSlice({
       .addCase(removeStyle.fulfilled, (state, action) => {
         state.styles = state.styles.filter((s) => s.id !== action.payload);
         if (state.selectedStyleId === action.payload) {
-          const fallback = state.styles.find((s) => s.is_builtin) || state.styles[0];
+          const fallback = state.styles[state.styles.length - 1];
           state.selectedStyleId = fallback ? fallback.id : null;
         }
       });

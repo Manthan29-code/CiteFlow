@@ -29,6 +29,9 @@ export const StyleManagerDialog: React.FC = () => {
   const { styles, selectedStyleId, isLoading } = useAppSelector(
     (state) => state.styles
   );
+  const hasCitations = useAppSelector((state) =>
+    Object.values(state.jobs.jobsById).some((j) => j.status === 'succeeded')
+  );
 
   const [mode, setMode] = useState<'list' | 'editor'>('list');
   const [editingStyleId, setEditingStyleId] = useState<string | null>(null);
@@ -115,6 +118,16 @@ export const StyleManagerDialog: React.FC = () => {
   };
 
   const handleDelete = async (styleId: string, styleName: string) => {
+    if (styles.length <= 1 && hasCitations) {
+      dispatch(
+        addToast({
+          type: 'error',
+          message: 'You cannot delete your only citation style while you have generated citations.',
+        })
+      );
+      setDeleteConfirmId(null);
+      return;
+    }
     try {
       await dispatch(removeStyle(styleId)).unwrap();
       dispatch(addToast({ type: 'success', message: `Style "${styleName}" deleted.` }));
@@ -204,9 +217,9 @@ export const StyleManagerDialog: React.FC = () => {
                           : 'border-border-light bg-white hover:border-border-light/80'
                       )}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2">
                             <span className="font-semibold text-charcoal-900 text-sm truncate">
                               {style.name}
                             </span>
@@ -217,14 +230,10 @@ export const StyleManagerDialog: React.FC = () => {
                               </span>
                             )}
                           </div>
-
-                          <div className="p-2 rounded-lg bg-charcoal-900/5 text-charcoal/70 font-mono text-[11px] leading-relaxed break-all border border-charcoal/10 select-all">
-                            {style.template.replace(/^\s*%.*$/gm, '').trim()}
-                          </div>
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {!isSelected && (
                             <Button
                               variant="ghost"
@@ -235,26 +244,6 @@ export const StyleManagerDialog: React.FC = () => {
                               Select
                             </Button>
                           )}
-
-                          {/* Copy to Clipboard Icon Button */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyTemplate(style.template, style.id, style.name)}
-                            className={cn(
-                              'p-1.5 border-border-light bg-white transition-colors',
-                              copiedStyleId === style.id
-                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50/60'
-                                : 'text-charcoal/60 hover:text-indigo-brand'
-                            )}
-                            title={copiedStyleId === style.id ? 'Copied to clipboard!' : 'Copy to Clipboard'}
-                          >
-                            {copiedStyleId === style.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
 
                           {/* Edit Icon Button */}
                           <Button
@@ -319,6 +308,15 @@ export const StyleManagerDialog: React.FC = () => {
             isEdit={!!editingStyleId}
             isProtected={false}
             onDelete={() => {
+              if (styles.length <= 1 && hasCitations) {
+                dispatch(
+                  addToast({
+                    type: 'error',
+                    message: 'You cannot delete your only citation style while you have generated citations.',
+                  })
+                );
+                return;
+              }
               const s = styles.find((x) => x.id === editingStyleId);
               if (s) {
                 handleDelete(s.id, s.name);
