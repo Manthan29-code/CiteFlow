@@ -189,18 +189,9 @@ export const StyleManagerDialog: React.FC = () => {
                     <Palette className="w-6 h-6" />
                   </div>
                   <h3 className="text-sm font-semibold text-charcoal-900 mb-1">No Citation Styles Available</h3>
-                  <p className="text-xs text-charcoal/60 max-w-sm mb-4">
+                  <p className="text-xs text-charcoal/60 max-w-sm">
                     All citation styles have been removed. You need at least one citation style to generate bibliographies.
                   </p>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleOpenCreate()}
-                    className="gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Create Style</span>
-                  </Button>
                 </div>
               ) : (
                 styles.map((style) => {
