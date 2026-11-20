@@ -1110,8 +1110,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
             </div>
 
             <span className="text-[11px] text-charcoal/60 leading-normal block mt-1">
-              Show first author followed by <em className="italic font-medium text-charcoal-700">et al.</em> when authors exceed this limit.
-            </span>
+              For more than ( Add box) authors, write et al. after the first author.            </span>
           </div>
         </div>
 
