@@ -102,21 +102,30 @@ export function serializeBlocksToTemplate(
   let templateBody = '';
 
   // Check if volume and locator (article number or first page) should merge into a single \href
+  // Rule: ONLY merge when they are directly beside each other without any text field between them.
+  // If there is any text field (punctuation, words, etc.), show separate links.
   let mergedVolIdx = -1;
   let mergedLocIdx = -1;
 
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     if (b.type === 'variable' && b.included !== false && b.variable === 'volume' && b.isLink) {
-      // Find the next included variable
       let nextVarIdx = -1;
+      let hasTextField = false;
+
       for (let j = i + 1; j < blocks.length; j++) {
-        if (blocks[j].type === 'variable' && blocks[j].included !== false) {
+        const betweenBlock = blocks[j];
+        if (betweenBlock.type === 'variable' && betweenBlock.included !== false) {
           nextVarIdx = j;
           break;
         }
+        // If there is any text block that is not purely empty/whitespace, they are not beside each other
+        if (betweenBlock.type === 'text' && (betweenBlock.text ?? '').trim() !== '') {
+          hasTextField = true;
+        }
       }
-      if (nextVarIdx !== -1) {
+
+      if (nextVarIdx !== -1 && !hasTextField) {
         const nextVar = blocks[nextVarIdx];
         if (
           (nextVar.variable === 'article number' || nextVar.variable === 'first page') &&
@@ -131,20 +140,13 @@ export function serializeBlocksToTemplate(
   }
 
   for (let i = 0; i < blocks.length; i++) {
-    // Check if we hit the start of a merged volume + locator pair
+    // Check if we hit the start of a merged volume + locator pair (beside each other)
     if (i === mergedVolIdx) {
       const volBlock = blocks[mergedVolIdx];
       const locBlock = blocks[mergedLocIdx];
       const volStr = volBlock.isBold ? `\\textbf{volume}` : 'volume';
       const locVar = (locBlock.variable || '').trim();
       const locStr = locBlock.isBold ? `\\textbf{${locVar}}` : locVar;
-
-      // Extract text between them
-      const textBetweenRaw = blocks
-        .slice(mergedVolIdx + 1, mergedLocIdx)
-        .map((b) => (b.type === 'text' ? b.text ?? '' : ''))
-        .join('');
-      const sep = textBetweenRaw.trim() ? textBetweenRaw : ' ';
 
       if (
         i > 0 &&
@@ -155,7 +157,7 @@ export function serializeBlocksToTemplate(
         templateBody += ' ';
       }
 
-      templateBody += `\\href{doi url}{${volStr}${sep}${locStr}}`;
+      templateBody += `\\href{doi url}{${volStr} ${locStr}}`;
       i = mergedLocIdx; // Skip past the locator block
       continue;
     }
