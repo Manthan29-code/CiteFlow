@@ -1,0 +1,4 @@
+-e .
+pymupdf>=1.23.0
+uvicorn[standard]>=0.28.0
+alembic>=1.13.1

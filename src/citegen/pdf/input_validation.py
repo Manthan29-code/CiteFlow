@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import Optional, Union
 
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 
 from citegen.config import settings
 

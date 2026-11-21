@@ -2,7 +2,10 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 
 logger = logging.getLogger(__name__)
 

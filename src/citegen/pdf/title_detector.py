@@ -4,7 +4,10 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    import fitz as pymupdf
 
 from citegen.config import settings
 from citegen.pdf.grobid_client import fetch_grobid_title
