@@ -85,15 +85,17 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
 
     try {
       const response = await getSignedUrl(file.id);
-      if (w) {
+      if (w && !w.closed) {
         w.location.href = response.url;
       } else {
-        dispatch(
-          addToast({
-            type: 'error',
-            message: 'Please allow pop-ups to open the PDF.',
-          })
-        );
+        // Fallback: trigger synthetic link click
+        const a = document.createElement('a');
+        a.href = response.url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }
     } catch (err) {
       if (w) w.close();
