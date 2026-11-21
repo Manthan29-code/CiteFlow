@@ -277,57 +277,78 @@ class CitationStyleService:
         # If user has remaining styles, reassign jobs referencing the deleted style to the latest remaining style
         if remaining_styles:
             fallback_style = remaining_styles[-1]
-            from citegen.api import render_single_record
-            from citegen.metadata.models import ArticleMetadata
-
-            jobs_stmt = select(Job).where(Job.owner_id == owner_id, Job.style_id == style_id)
-            affected_jobs = list((await db.execute(jobs_stmt)).scalars().all())
-            for job in affected_jobs:
-                job.style_id = fallback_style.id
-                if job.result_metadata:
-                    meta = ArticleMetadata(**job.result_metadata)
-                    job.result_tex = render_single_record(
-                        meta,
-                        template=fallback_style.template,
-                        standalone=(job.tex_mode == "standalone"),
-                    )
-                    job.updated_at = utc_now()
-                    db.add(job)
+            # Atomically reassign all jobs referencing this style to the fallback style
+            await db.execute(
+                update(Job)
+                .where(Job.style_id == style_id)
+                .values(style_id=fallback_style.id, updated_at=utc_now())
+            )
+            # Best-effort re-rendering for succeeded jobs (does not fail the deletion if rendering fails)
+            try:
+                from citegen.api import render_single_record
+                jobs_stmt = select(Job).where(Job.owner_id == owner_id, Job.style_id == fallback_style.id)
+                affected_jobs = list((await db.execute(jobs_stmt)).scalars().all())
+                for job in affected_jobs:
+                    if job.result_metadata:
+                        try:
+                            job.result_tex = render_single_record(
+                                metadata=job.result_metadata,
+                                template=fallback_style.template,
+                                standalone=(job.tex_mode == "standalone"),
+                            )
+                            job.updated_at = utc_now()
+                            db.add(job)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         else:
             # No remaining styles (user has 0 citations anyway)
             await db.execute(
                 update(Job)
-                .where(Job.owner_id == owner_id, Job.style_id == style_id)
-                .values(style_id=None)
+                .where(Job.style_id == style_id)
+                .values(style_id=None, updated_at=utc_now())
             )
 
         # Case 1: Built-in style -> Record tombstone for this user only
         if style.owner_id is None:
-            tombstone = CitationStyle(
-                owner_id=owner_id,
-                name=style.name,
-                slug=f"deleted:{style.slug}",
-                template="deleted",
-                is_builtin=False,
-                created_at=utc_now(),
-                updated_at=utc_now(),
+            tomb_stmt = select(CitationStyle).where(
+                CitationStyle.owner_id == owner_id,
+                CitationStyle.slug == f"deleted:{style.slug}",
             )
-            db.add(tombstone)
+            existing_tombstone = (await db.execute(tomb_stmt)).scalar_one_or_none()
+            if not existing_tombstone:
+                tombstone = CitationStyle(
+                    owner_id=owner_id,
+                    name=style.name,
+                    slug=f"deleted:{style.slug}",
+                    template="deleted",
+                    is_builtin=False,
+                    created_at=utc_now(),
+                    updated_at=utc_now(),
+                )
+                db.add(tombstone)
             await db.commit()
             return
 
         # Case 2: User-owned style that had overridden a built-in -> Delete user copy AND record tombstone
         if style.slug in BUILTIN_PRESET_TEMPLATES:
-            tombstone = CitationStyle(
-                owner_id=owner_id,
-                name=style.name,
-                slug=f"deleted:{style.slug}",
-                template="deleted",
-                is_builtin=False,
-                created_at=utc_now(),
-                updated_at=utc_now(),
+            tomb_stmt = select(CitationStyle).where(
+                CitationStyle.owner_id == owner_id,
+                CitationStyle.slug == f"deleted:{style.slug}",
             )
-            db.add(tombstone)
+            existing_tombstone = (await db.execute(tomb_stmt)).scalar_one_or_none()
+            if not existing_tombstone:
+                tombstone = CitationStyle(
+                    owner_id=owner_id,
+                    name=style.name,
+                    slug=f"deleted:{style.slug}",
+                    template="deleted",
+                    is_builtin=False,
+                    created_at=utc_now(),
+                    updated_at=utc_now(),
+                )
+                db.add(tombstone)
 
         # Delete the user's custom row
         await db.delete(style)
