@@ -57,7 +57,7 @@ export const StyleManagerDialog: React.FC = () => {
     setName(initialName);
     const initialTpl =
       baseTemplate ||
-      '\\bibitem{citation key} firstname . surname , title , \\textit{ journal }, vol. volume , no. issue , Article article number , year . \\href{doi url}{doi url}';
+      '\\bibitem{citation key} firstname . middle name surname , title , journal abbr , vol. volume , no. issue , Article article number , year . \\href{doi url}{doi url}';
     setTemplate(initialTpl);
     setMode('editor');
   };

@@ -316,6 +316,9 @@ def clean_latex_punctuation(text: str) -> str:
     text = re.sub(r",\s*Article\s*,", ",", text)
     text = re.sub(r"\bdoi:\s*(?=\.|\s*$)", "", text)
 
+    # Remove empty href if doi is missing
+    text = re.sub(r"\\href\{\s*\}\{((?:\\textbf\{[^}]+\}|[^}])+)\}", r"\1", text)
+
     # Clean double colons, semicolons, commas
     text = re.sub(r";\s*:", ":", text)
     text = re.sub(r",\s*,+", ",", text)

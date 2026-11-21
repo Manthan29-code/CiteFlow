@@ -53,10 +53,10 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { id: 'title', label: 'title', category: 'publication', supportsItalic: true },
   { id: 'journal', label: 'journal', category: 'publication', supportsItalic: true },
   { id: 'journal abbr', label: 'journal abbr', category: 'publication', supportsItalic: true },
-  { id: 'volume', label: 'volume', category: 'publication', supportsBold: true },
-  { id: 'issue', label: 'issue', category: 'publication', supportsBold: true },
-  { id: 'article number', label: 'article number', category: 'publication', supportsBold: true },
-  { id: 'first page', label: 'first page', category: 'publication' },
+  { id: 'volume', label: 'volume', category: 'publication', supportsBold: true, supportsLink: true },
+  { id: 'issue', label: 'issue', category: 'publication', supportsBold: true, supportsLink: true },
+  { id: 'article number', label: 'article number', category: 'publication', supportsBold: true, supportsLink: true },
+  { id: 'first page', label: 'first page', category: 'publication', supportsLink: true },
   { id: 'year', label: 'year', category: 'publication' },
 
   // Identification metadata
@@ -71,21 +71,22 @@ export const DEFAULT_INITIAL_BLOCKS: BuilderBlock[] = [
   { id: 'b_3', type: 'text', text: '} ' },
   { id: 'b_4', type: 'variable', variable: 'firstname', included: true },
   { id: 'b_5', type: 'text', text: ' . ' },
-  { id: 'b_6', type: 'variable', variable: 'surname', included: true },
-  { id: 'b_7', type: 'text', text: ', ' },
-  { id: 'b_8', type: 'variable', variable: 'title', included: true },
-  { id: 'b_9', type: 'text', text: ', ' },
-  { id: 'b_10', type: 'variable', variable: 'journal', included: true, isItalic: true },
-  { id: 'b_11', type: 'text', text: ', vol. ' },
-  { id: 'b_12', type: 'variable', variable: 'volume', included: true, isBold: false },
-  { id: 'b_13', type: 'text', text: ', no. ' },
-  { id: 'b_14', type: 'variable', variable: 'issue', included: true, isBold: false },
-  { id: 'b_15', type: 'text', text: ', Article ' },
-  { id: 'b_16', type: 'variable', variable: 'article number', included: true, isBold: false },
-  { id: 'b_17', type: 'text', text: ', ' },
-  { id: 'b_18', type: 'variable', variable: 'year', included: true },
-  { id: 'b_19', type: 'text', text: '. ' },
-  { id: 'b_20', type: 'variable', variable: 'doi url', included: true, isLink: true },
+  { id: 'b_6', type: 'variable', variable: 'middle name', included: true },
+  { id: 'b_7', type: 'variable', variable: 'surname', included: true },
+  { id: 'b_8', type: 'text', text: ', ' },
+  { id: 'b_9', type: 'variable', variable: 'title', included: true },
+  { id: 'b_10', type: 'text', text: ', ' },
+  { id: 'b_11', type: 'variable', variable: 'journal abbr', included: true, isItalic: false },
+  { id: 'b_12', type: 'text', text: ', vol. ' },
+  { id: 'b_13', type: 'variable', variable: 'volume', included: true, isBold: false },
+  { id: 'b_14', type: 'text', text: ', no. ' },
+  { id: 'b_15', type: 'variable', variable: 'issue', included: true, isBold: false },
+  { id: 'b_16', type: 'text', text: ', Article ' },
+  { id: 'b_17', type: 'variable', variable: 'article number', included: true, isBold: false },
+  { id: 'b_18', type: 'text', text: ', ' },
+  { id: 'b_19', type: 'variable', variable: 'year', included: true },
+  { id: 'b_20', type: 'text', text: '. ' },
+  { id: 'b_21', type: 'variable', variable: 'doi url', included: true, isLink: true },
 ];
 
 /**
@@ -100,7 +101,65 @@ export function serializeBlocksToTemplate(
 ): string {
   let templateBody = '';
 
+  // Check if volume and locator (article number or first page) should merge into a single \href
+  let mergedVolIdx = -1;
+  let mergedLocIdx = -1;
+
   for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.type === 'variable' && b.included !== false && b.variable === 'volume' && b.isLink) {
+      // Find the next included variable
+      let nextVarIdx = -1;
+      for (let j = i + 1; j < blocks.length; j++) {
+        if (blocks[j].type === 'variable' && blocks[j].included !== false) {
+          nextVarIdx = j;
+          break;
+        }
+      }
+      if (nextVarIdx !== -1) {
+        const nextVar = blocks[nextVarIdx];
+        if (
+          (nextVar.variable === 'article number' || nextVar.variable === 'first page') &&
+          nextVar.isLink
+        ) {
+          mergedVolIdx = i;
+          mergedLocIdx = nextVarIdx;
+        }
+      }
+      break;
+    }
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    // Check if we hit the start of a merged volume + locator pair
+    if (i === mergedVolIdx) {
+      const volBlock = blocks[mergedVolIdx];
+      const locBlock = blocks[mergedLocIdx];
+      const volStr = volBlock.isBold ? `\\textbf{volume}` : 'volume';
+      const locVar = (locBlock.variable || '').trim();
+      const locStr = locBlock.isBold ? `\\textbf{${locVar}}` : locVar;
+
+      // Extract text between them
+      const textBetweenRaw = blocks
+        .slice(mergedVolIdx + 1, mergedLocIdx)
+        .map((b) => (b.type === 'text' ? b.text ?? '' : ''))
+        .join('');
+      const sep = textBetweenRaw.trim() ? textBetweenRaw : ' ';
+
+      if (
+        i > 0 &&
+        blocks[i - 1].type === 'variable' &&
+        blocks[i - 1].included !== false &&
+        !templateBody.endsWith(' ')
+      ) {
+        templateBody += ' ';
+      }
+
+      templateBody += `\\href{doi url}{${volStr}${sep}${locStr}}`;
+      i = mergedLocIdx; // Skip past the locator block
+      continue;
+    }
+
     const block = blocks[i];
     if (block.type === 'text') {
       templateBody += block.text ?? ' ';
@@ -125,7 +184,10 @@ export function serializeBlocksToTemplate(
       if (block.isItalic && ['journal', 'journal abbr', 'journal abbreviation', 'title'].includes(v)) {
         varStr = `\\textit{${varStr}}`;
       }
-      if (block.isLink && (v === 'doi url' || v === 'doi')) {
+      if (
+        block.isLink &&
+        ['volume', 'issue', 'article number', 'first page', 'doi url', 'doi'].includes(v)
+      ) {
         varStr = `\\href{doi url}{${varStr}}`;
       }
       templateBody += varStr;
@@ -246,7 +308,7 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
   ];
 
   const regex = new RegExp(
-    `(\\\\textbf\\{(?:volume|issue|article number)\\})|(\\\\textit\\{(?:journal abbr|journal abbreviation|journal|title)\\})|(\\\\href\\{doi url\\}\\{(?:doi url|doi)\\})|(${knownKeywords
+    `(\\\\href\\{doi(?:\\s+url)?\\}\\{((?:\\\\textbf\\{[^}]+\\}|[^}])+)\\})|(\\\\textbf\\{\\s*(?:volume|issue|article number)\\s*\\})|(\\\\textit\\{\\s*(?:journal abbr|journal abbreviation|journal|title)\\s*\\})|(${knownKeywords
       .map((k) => k.replace('.', '\\.'))
       .join('|')})`,
     'gi'
@@ -268,11 +330,107 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
     }
 
     const matchedStr = match[0];
-    const boldMatch = matchedStr.match(/^\\textbf\{([^}]+)\}$/i);
-    const italicMatch = matchedStr.match(/^\\textit\{([^}]+)\}$/i);
-    const hrefMatch = matchedStr.match(/^\\href\{doi\s+url\}\{(doi\s+url|doi)\}$/i);
+    const hrefMatch = matchedStr.match(/^\\href\{doi(?:\s+url)?\}\{((?:\\textbf\{[^}]+\}|[^}])+)\}$/i);
+    const boldMatch = matchedStr.match(/^\\textbf\{\s*([^}]+)\s*\}$/i);
+    const italicMatch = matchedStr.match(/^\\textit\{\s*([^}]+)\s*\}$/i);
 
-    if (boldMatch) {
+    if (hrefMatch) {
+      const inner = hrefMatch[1].trim();
+      const innerLower = inner.toLowerCase();
+
+      // Check if merged volume and locator (article number or first page)
+      if (
+        innerLower.includes('volume') &&
+        (innerLower.includes('article number') || innerLower.includes('first page'))
+      ) {
+        const isVolBold = /\\textbf\{\s*volume\s*\}/i.test(inner);
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: 'volume',
+          included: true,
+          isBold: isVolBold,
+          isItalic: false,
+          isLink: true,
+        });
+
+        // Add separator space between merged variables
+        blocks.push({
+          id: `tb_${blockCounter++}`,
+          type: 'text',
+          text: ' ',
+        });
+
+        const isLocArtNum = innerLower.includes('article number');
+        const locVar = isLocArtNum ? 'article number' : 'first page';
+        const isLocBold = isLocArtNum ? /\\textbf\{\s*article\s+number\s*\}/i.test(inner) : false;
+
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: locVar,
+          included: true,
+          isBold: isLocBold,
+          isItalic: false,
+          isLink: true,
+        });
+      } else if (innerLower.includes('volume')) {
+        const isVolBold = /\\textbf\{\s*volume\s*\}/i.test(inner);
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: 'volume',
+          included: true,
+          isBold: isVolBold,
+          isItalic: false,
+          isLink: true,
+        });
+      } else if (innerLower.includes('issue')) {
+        const isIssueBold = /\\textbf\{\s*issue\s*\}/i.test(inner);
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: 'issue',
+          included: true,
+          isBold: isIssueBold,
+          isItalic: false,
+          isLink: true,
+        });
+      } else if (innerLower.includes('article number')) {
+        const isArtBold = /\\textbf\{\s*article\s+number\s*\}/i.test(inner);
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: 'article number',
+          included: true,
+          isBold: isArtBold,
+          isItalic: false,
+          isLink: true,
+        });
+      } else if (innerLower.includes('first page')) {
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: 'first page',
+          included: true,
+          isBold: false,
+          isItalic: false,
+          isLink: true,
+        });
+      } else {
+        // doi or doi url
+        const v = innerLower.includes('doi url') ? 'doi url' : 'doi';
+        blocks.push({
+          id: `vb_${blockCounter++}`,
+          type: 'variable',
+          variable: v,
+          included: true,
+          isBold: false,
+          isItalic: false,
+          isLink: true,
+        });
+      }
+    } else if (boldMatch) {
       const v = boldMatch[1].toLowerCase().trim();
       blocks.push({
         id: `vb_${blockCounter++}`,
@@ -294,17 +452,6 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
         isBold: false,
         isItalic: true,
         isLink: false,
-      });
-    } else if (hrefMatch) {
-      const v = hrefMatch[1].toLowerCase().trim();
-      blocks.push({
-        id: `vb_${blockCounter++}`,
-        type: 'variable',
-        variable: v,
-        included: true,
-        isBold: false,
-        isItalic: false,
-        isLink: true,
       });
     } else {
       const lower = matchedStr.toLowerCase().trim();
@@ -516,7 +663,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
       included: true,
       isBold: false,
       isItalic: false,
-      isLink: varDef.supportsLink || false,
+      isLink: varDef.id === 'doi url' || varDef.id === 'doi' ? true : false,
     };
 
     const next = [...blocks, newBlock];
@@ -948,8 +1095,8 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                         </button>
                       )}
 
-                      {/* Link Option for doi, doi url */}
-                      {['doi', 'doi url'].includes(block.variable || '') && (
+                      {/* Link Option for doi, doi url, volume, issue, article number, first page */}
+                      {['doi', 'doi url', 'volume', 'issue', 'article number', 'first page'].includes(block.variable || '') && (
                         <label className="flex items-center gap-1 ml-1 text-[11px] font-sans text-indigo-900 font-medium cursor-pointer">
                           <input
                             type="checkbox"
@@ -1027,7 +1174,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
           <div className="text-xs text-charcoal-900 select-none flex-1">
             <div className="flex items-center gap-1.5 flex-wrap font-semibold text-xs text-charcoal-900">
               <label htmlFor="builder-truncate-authors" className="cursor-pointer">
-                First author shown for &gt;
+                For more than
               </label>
 
               {/* Stepper with < [ input ] > */}
@@ -1080,12 +1227,13 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
               </div>
 
               <label htmlFor="builder-truncate-authors" className="cursor-pointer">
-                authors 
+                authors, write et al. after the first author.
               </label>
             </div>
 
-            <span className="text-[11px] text-charcoal/60 leading-normal block mt-1">
-              For more than ( Add box) authors, write et al. after the first author.            </span>
+            {/* <span className="text-[11px] text-charcoal/60 leading-normal block mt-1">
+              For more than ( Add box) authors, write et al. after the first author.
+            </span> */}
           </div>
         </div>
 
