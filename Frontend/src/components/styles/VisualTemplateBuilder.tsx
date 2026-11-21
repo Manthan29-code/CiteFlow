@@ -100,53 +100,47 @@ export function serializeBlocksToTemplate(
   authorThreshold: number = 7
 ): string {
   let templateBody = '';
+  const LINKABLE_PUB_FIELDS = ['volume', 'issue', 'article number', 'first page'];
 
-  // Check if volume and locator (article number or first page) should merge into a single \href
-  // Rule: ONLY merge when they are directly beside each other without any text field between them.
-  // If there is any text field (punctuation, words, etc.), show separate links.
-  let mergedVolIdx = -1;
-  let mergedLocIdx = -1;
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i];
 
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
-    if (b.type === 'variable' && b.included !== false && b.variable === 'volume' && b.isLink) {
-      let nextVarIdx = -1;
-      let hasTextField = false;
+    // Check if this is a linked publication field that should merge with adjacent linked publication fields
+    if (
+      block.type === 'variable' &&
+      block.included !== false &&
+      block.isLink &&
+      LINKABLE_PUB_FIELDS.includes((block.variable || '').trim())
+    ) {
+      // Find all adjacent linked publication variables that have NO non-whitespace text field between them
+      const group: BuilderBlock[] = [block];
+      let j = i + 1;
+      let groupEndIdx = i;
 
-      for (let j = i + 1; j < blocks.length; j++) {
-        const betweenBlock = blocks[j];
-        if (betweenBlock.type === 'variable' && betweenBlock.included !== false) {
-          nextVarIdx = j;
-          break;
-        }
-        // If there is any text block that is not purely empty/whitespace, they are not beside each other
-        if (betweenBlock.type === 'text' && (betweenBlock.text ?? '').trim() !== '') {
-          hasTextField = true;
+      while (j < blocks.length) {
+        const next = blocks[j];
+        if (next.type === 'text') {
+          if ((next.text ?? '').trim() !== '') {
+            // Non-empty text field between them -> stop grouping (separate links)
+            break;
+          }
+          j++;
+        } else if (next.type === 'variable') {
+          if (next.included === false) {
+            j++;
+          } else if (
+            next.isLink &&
+            LINKABLE_PUB_FIELDS.includes((next.variable || '').trim())
+          ) {
+            group.push(next);
+            groupEndIdx = j;
+            j++;
+          } else {
+            break;
+          }
         }
       }
-
-      if (nextVarIdx !== -1 && !hasTextField) {
-        const nextVar = blocks[nextVarIdx];
-        if (
-          (nextVar.variable === 'article number' || nextVar.variable === 'first page') &&
-          nextVar.isLink
-        ) {
-          mergedVolIdx = i;
-          mergedLocIdx = nextVarIdx;
-        }
-      }
-      break;
-    }
-  }
-
-  for (let i = 0; i < blocks.length; i++) {
-    // Check if we hit the start of a merged volume + locator pair (beside each other)
-    if (i === mergedVolIdx) {
-      const volBlock = blocks[mergedVolIdx];
-      const locBlock = blocks[mergedLocIdx];
-      const volStr = volBlock.isBold ? `\\textbf{volume}` : 'volume';
-      const locVar = (locBlock.variable || '').trim();
-      const locStr = locBlock.isBold ? `\\textbf{${locVar}}` : locVar;
 
       if (
         i > 0 &&
@@ -157,16 +151,33 @@ export function serializeBlocksToTemplate(
         templateBody += ' ';
       }
 
-      templateBody += `\\href{doi url}{${volStr} ${locStr}}`;
-      i = mergedLocIdx; // Skip past the locator block
-      continue;
+      if (group.length > 1) {
+        // MERGED FORMAT: \href{doi url}{\textbf{21} 043502}
+        const innerParts = group.map((b) => {
+          const v = (b.variable || '').trim();
+          return b.isBold ? `\\textbf{${v}}` : v;
+        });
+        templateBody += `\\href{doi url}{${innerParts.join(' ')}}`;
+        i = groupEndIdx + 1;
+        continue;
+      } else {
+        // SINGLE LINK: \href{doi url}{\textbf{volume}}
+        const v = (block.variable || '').trim();
+        const inner = block.isBold ? `\\textbf{${v}}` : v;
+        templateBody += `\\href{doi url}{${inner}}`;
+        i++;
+        continue;
+      }
     }
 
-    const block = blocks[i];
     if (block.type === 'text') {
       templateBody += block.text ?? ' ';
+      i++;
     } else if (block.type === 'variable') {
-      if (block.included === false) continue;
+      if (block.included === false) {
+        i++;
+        continue;
+      }
       const v = (block.variable || '').trim();
 
       // Ensure space between consecutive variables so they never fuse
@@ -186,13 +197,13 @@ export function serializeBlocksToTemplate(
       if (block.isItalic && ['journal', 'journal abbr', 'journal abbreviation', 'title'].includes(v)) {
         varStr = `\\textit{${varStr}}`;
       }
-      if (
-        block.isLink &&
-        ['volume', 'issue', 'article number', 'first page', 'doi url', 'doi'].includes(v)
-      ) {
+      if (block.isLink && ['doi url', 'doi'].includes(v)) {
         varStr = `\\href{doi url}{${varStr}}`;
       }
       templateBody += varStr;
+      i++;
+    } else {
+      i++;
     }
   }
 
@@ -340,92 +351,51 @@ export function deserializeTemplateToBlocks(rawTemplate: string): {
       const inner = hrefMatch[1].trim();
       const innerLower = inner.toLowerCase();
 
-      // Check if merged volume and locator (article number or first page)
-      if (
-        innerLower.includes('volume') &&
-        (innerLower.includes('article number') || innerLower.includes('first page'))
-      ) {
-        const isVolBold = /\\textbf\{\s*volume\s*\}/i.test(inner);
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: 'volume',
-          included: true,
-          isBold: isVolBold,
-          isItalic: false,
-          isLink: true,
-        });
+      // Find all publication/identification variables inside href
+      const linkableVars = ['article number', 'first page', 'volume', 'issue', 'doi url', 'doi'];
+      const foundInHref: { variable: string; index: number; isBold: boolean }[] = [];
 
-        // Add separator space between merged variables
-        blocks.push({
-          id: `tb_${blockCounter++}`,
-          type: 'text',
-          text: ' ',
-        });
+      for (const lv of linkableVars) {
+        const regexVar = new RegExp(`(?:\\\\textbf\\{\\s*)?\\b${lv.replace('.', '\\.')}\\b(?:\\s*\\})?`, 'gi');
+        let mVar: RegExpExecArray | null;
+        while ((mVar = regexVar.exec(inner)) !== null) {
+          const matchedToken = mVar[0];
+          const isBold = /\\textbf\{/i.test(matchedToken);
+          foundInHref.push({
+            variable: lv,
+            index: mVar.index,
+            isBold,
+          });
+        }
+      }
 
-        const isLocArtNum = innerLower.includes('article number');
-        const locVar = isLocArtNum ? 'article number' : 'first page';
-        const isLocBold = isLocArtNum ? /\\textbf\{\s*article\s+number\s*\}/i.test(inner) : false;
+      foundInHref.sort((a, b) => a.index - b.index);
 
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: locVar,
-          included: true,
-          isBold: isLocBold,
-          isItalic: false,
-          isLink: true,
-        });
-      } else if (innerLower.includes('volume')) {
-        const isVolBold = /\\textbf\{\s*volume\s*\}/i.test(inner);
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: 'volume',
-          included: true,
-          isBold: isVolBold,
-          isItalic: false,
-          isLink: true,
-        });
-      } else if (innerLower.includes('issue')) {
-        const isIssueBold = /\\textbf\{\s*issue\s*\}/i.test(inner);
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: 'issue',
-          included: true,
-          isBold: isIssueBold,
-          isItalic: false,
-          isLink: true,
-        });
-      } else if (innerLower.includes('article number')) {
-        const isArtBold = /\\textbf\{\s*article\s+number\s*\}/i.test(inner);
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: 'article number',
-          included: true,
-          isBold: isArtBold,
-          isItalic: false,
-          isLink: true,
-        });
-      } else if (innerLower.includes('first page')) {
-        blocks.push({
-          id: `vb_${blockCounter++}`,
-          type: 'variable',
-          variable: 'first page',
-          included: true,
-          isBold: false,
-          isItalic: false,
-          isLink: true,
+      if (foundInHref.length > 0) {
+        foundInHref.forEach((item, idx) => {
+          if (idx > 0) {
+            blocks.push({
+              id: `tb_${blockCounter++}`,
+              type: 'text',
+              text: ' ',
+            });
+          }
+          blocks.push({
+            id: `vb_${blockCounter++}`,
+            type: 'variable',
+            variable: item.variable,
+            included: true,
+            isBold: item.isBold,
+            isItalic: false,
+            isLink: true,
+          });
         });
       } else {
-        // doi or doi url
-        const v = innerLower.includes('doi url') ? 'doi url' : 'doi';
+        // Fallback
         blocks.push({
           id: `vb_${blockCounter++}`,
           type: 'variable',
-          variable: v,
+          variable: innerLower.includes('doi') ? 'doi url' : inner,
           included: true,
           isBold: false,
           isItalic: false,
