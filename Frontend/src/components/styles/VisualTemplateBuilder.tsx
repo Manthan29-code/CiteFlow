@@ -1164,7 +1164,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                   className="px-2 py-1.5 flex items-center justify-center text-charcoal-700 hover:text-indigo-brand hover:bg-slate-200/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer select-none"
                   title="Decrease threshold by 1"
                 >
-                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                  <svg className="w-3.8 h-3.5 fill-current" viewBox="0 0 24 24">
                     <path d="M16 6.5v11a1 1 0 0 1-1.55.83l-8.5-5.5a1 1 0 0 1 0-1.66l8.5-5.5A1 1 0 0 1 16 6.5z" />
                   </svg>
                 </button>
@@ -1196,7 +1196,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                   className="px-2 py-1.5 flex items-center justify-center text-charcoal-700 hover:text-indigo-brand hover:bg-slate-200/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer select-none"
                   title="Increase threshold by 1"
                 >
-                  <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                  <svg className="w-3.8 h-3.5 fill-current" viewBox="0 0 24 24">
                     <path d="M8 6.5v11a1 1 0 0 0 1.55.83l8.5-5.5a1 1 0 0 0 0-1.66l-8.5-5.5A1 1 0 0 0 8 6.5z" />
                   </svg>
                 </button>
