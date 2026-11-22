@@ -132,7 +132,7 @@ Liveness and readiness probes are available at:
 | **Author** | `middle name` | Middle name or initial | `K.` |
 | **Publication** | `title` | Full sanitized document title | `Transition from single to multiple...` |
 | **Publication** | `journal` | Standard journal publication name | `Journal of Physics D: Applied Physics` |
-| **Publication** | `journal abbr` | Standard ISO journal abbreviation | `J Phys D Appl Phys` |
+| **Publication** | `journal abbr` | Standard ISO journal abbreviation | `J. Phys. D: Appl. Phys.` |
 | **Publication** | `volume` | Journal volume designation (supports bold) | `50` |
 | **Publication** | `issue` | Journal issue designation (supports bold) | `6` |
 | **Publication** | `article number` | Electronic article / CID number (supports bold) | `065201` |
