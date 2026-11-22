@@ -7,7 +7,6 @@ export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  description?: string;
   children: React.ReactNode;
   className?: string;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '75p';
@@ -17,7 +16,6 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
-  description,
   children,
   className,
   maxWidth = 'md',
@@ -87,11 +85,6 @@ export const Modal: React.FC<ModalProps> = ({
                 <h3 className="font-serif text-xl font-bold tracking-tight text-charcoal-900">
                   {title}
                 </h3>
-                {description && (
-                  <p className="mt-1 text-xs text-charcoal/70 font-sans">
-                    {description}
-                  </p>
-                )}
               </div>
               <button
                 type="button"

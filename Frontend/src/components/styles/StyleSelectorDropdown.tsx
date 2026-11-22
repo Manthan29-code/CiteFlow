@@ -114,7 +114,7 @@ export const StyleSelectorDropdown: React.FC = () => {
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-indigo-brand hover:bg-cream-200 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Manage Styles...</span>
+              <span>Create Styles</span>
             </button>
           </div>
         </div>

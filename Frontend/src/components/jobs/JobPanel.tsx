@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -17,16 +17,13 @@ import {
   openTitleConfirmModal,
   openReviewModal,
   openTexPreviewModal,
-  openJobDrawer,
   setJob,
-  setJobs,
 } from '@/store/slices/jobsSlice';
 import { addToast } from '@/store/slices/uiSlice';
 import { useJob } from '@/hooks/useJob';
-import { listJobs, createJob } from '@/api/jobs';
+import { createJob } from '@/api/jobs';
 import { Button } from '@/components/common/Button';
 import { formatDate } from '@/lib/format';
-import { JobResponse } from '@/types/api';
 import { getErrorMessage } from '@/api/errors';
 
 export const JobPanel: React.FC = () => {
@@ -34,24 +31,8 @@ export const JobPanel: React.FC = () => {
   const activeJobId = useAppSelector((state) => state.jobs.activeJobDrawerJobId);
   const { job, cancel } = useJob(activeJobId);
 
-  const [history, setHistory] = useState<JobResponse[]>([]);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
-
-  // Load history of jobs for this file
-  useEffect(() => {
-    if (job?.file_id) {
-      listJobs({ fileId: job.file_id, limit: 10 })
-        .then((res) => {
-          const items = res.items || [];
-          setHistory(items);
-          if (items.length > 0) {
-            dispatch(setJobs(items));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [dispatch, job?.file_id, job?.status]);
 
   if (!activeJobId || !job) return null;
 
@@ -125,9 +106,7 @@ export const JobPanel: React.FC = () => {
                   <h3 className="font-serif text-lg font-bold text-charcoal-900 m-0">
                     Citation Pipeline
                   </h3>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-charcoal/50">
-                    Mode: {job.tex_mode} &bull; ID: {job.id.slice(0, 8)}
-                  </p>
+                 
                 </div>
               </div>
 
@@ -281,64 +260,6 @@ export const JobPanel: React.FC = () => {
                     <Ban className="w-3.5 h-3.5" />
                     <span>Cancel Job</span>
                   </Button>
-                )}
-              </div>
-
-              {/* Job Run History */}
-              <div className="pt-3">
-                <h4 className="font-mono text-xs uppercase tracking-wider text-charcoal/60 font-semibold mb-2.5">
-                  Job History for File
-                </h4>
-                {history.length === 0 ? (
-                  <p className="text-xs text-charcoal/40 font-sans">No previous runs.</p>
-                ) : (
-                  <div className="divide-y divide-border-light rounded-xl border border-border-light bg-white overflow-hidden text-xs">
-                    {history.map((h) => (
-                      <div
-                        key={h.id}
-                        onClick={() => {
-                          if (h.id !== activeJobId) {
-                            dispatch(openJobDrawer(h.id));
-                          }
-                        }}
-                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
-                          h.id === activeJobId ? 'bg-indigo-50/70 border-l-2 border-l-indigo-600' : 'hover:bg-cream-100'
-                        }`}
-                        title="Click to view details for this run"
-                      >
-                        <div>
-                          <div className="font-medium text-charcoal-900 capitalize flex items-center gap-1.5">
-                            <span>{h.status.replace(/_/g, ' ')}</span>
-                            {h.id === activeJobId && (
-                              <span className="text-[9px] font-mono uppercase bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-semibold tracking-wider">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] font-mono text-charcoal/40">
-                            {formatDate(h.created_at)} &bull; {h.tex_mode}
-                          </div>
-                        </div>
-
-                        {h.status === 'succeeded' && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // On phones, close the pipeline drawer before opening the preview.
-                              if (window.matchMedia('(max-width: 767px)').matches) {
-                                dispatch(closeJobDrawer());
-                              }
-                              dispatch(openTexPreviewModal(h.id));
-                            }}
-                            className="text-xs text-indigo-brand hover:underline font-medium font-mono"
-                          >
-                            View .tex
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
             </div>

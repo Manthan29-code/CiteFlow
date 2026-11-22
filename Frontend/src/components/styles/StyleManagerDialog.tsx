@@ -146,13 +146,13 @@ export const StyleManagerDialog: React.FC = () => {
           ? editingStyleId
             ? 'Edit Citation Style'
             : 'Create New Citation Style'
-          : 'Citation Styles Manager'
+          : 'Create and Customise Citation Styles'
       }
-      description={
-        mode === 'editor'
-          ? undefined
-          : 'Customize, create, and manage reference bibliography formats.'
-      }
+      // description={
+      // mode === 'editor'
+      //     ? undefined
+      //     : 'Customize, create, and manage reference bibliography formats.'
+      // }
       maxWidth={mode === 'editor' ? '4xl' : '3xl'}
     >
       <div className="space-y-4">

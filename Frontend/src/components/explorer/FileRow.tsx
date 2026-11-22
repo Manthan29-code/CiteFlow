@@ -6,7 +6,7 @@ import {
   MoreVertical,
   ExternalLink,
   Trash2,
-  Sparkles,
+  Eye,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { openDeleteDialog, addToast } from '@/store/slices/uiSlice';
@@ -169,9 +169,21 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
           {!isFolder && (
             <div className="flex items-center gap-1.5 mt-1 sm:hidden">
               {job && <StatusBadge job={job} size="sm" />}
-              {(!job || ['succeeded', 'unresolved', 'failed', 'canceled', 'expired'].includes(job.status)) && (
+              {job?.status === 'succeeded' ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dispatch(openTexPreviewModal(job.id));
+                  }}
+                  title="View Citation"
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-brand text-white shadow-xs hover:bg-indigo-hover transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+              ) : (!job || ['failed', 'unresolved', 'canceled', 'expired'].includes(job.status)) ? (
                 <GenerateButton fileId={file!.id} fileName={file!.name} iconOnly={true} />
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -194,23 +206,22 @@ export const FileRow: React.FC<FileRowProps> = ({ item }) => {
         ) : (
           <div className="flex items-center justify-center gap-2">
             {job && <StatusBadge job={job} />}
-            {job && (
+            {job?.status === 'succeeded' ? (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  dispatch(openJobDrawer(job.id));
+                  dispatch(openTexPreviewModal(job.id));
                 }}
-                title="View Citation Pipeline"
-                aria-label="View Citation Pipeline"
-                className="p-1 rounded-lg text-charcoal/40 hover:text-indigo-brand hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
+                title="View Citation"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-semibold text-white rounded-xl bg-indigo-brand hover:bg-indigo-hover active:scale-95 shadow-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-brand"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Eye className="w-3.5 h-3.5" />
+                <span>View</span>
               </button>
-            )}
-            {(!job || ['succeeded', 'unresolved', 'failed', 'canceled', 'expired'].includes(job.status)) && (
+            ) : (!job || ['failed', 'unresolved', 'canceled', 'expired'].includes(job.status)) ? (
               <GenerateButton fileId={file!.id} fileName={file!.name} />
-            )}
+            ) : null}
           </div>
         )}
       </td>

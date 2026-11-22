@@ -80,7 +80,17 @@ class JobService:
                 headers={"Retry-After": "10"},
             )
 
-        # 4. Insert new job
+        # 4. Remove previous non-active jobs for this file so only the latest action is stored in DB
+        from sqlalchemy import delete
+        await db.execute(
+            delete(Job).where(
+                Job.file_id == file_id,
+                Job.owner_id == owner_id,
+                Job.status.notin_(ACTIVE_STATUSES),
+            )
+        )
+
+        # 5. Insert new job
         new_job = Job(
             id=uuid4(),
             owner_id=owner_id,
@@ -102,7 +112,7 @@ class JobService:
                 return existing_active, False
             raise
 
-        # 5. Dispatch background task
+        # 6. Dispatch background task
         dispatch_job(new_job.id, storage)
         return new_job, True
 
@@ -263,10 +273,15 @@ class JobService:
             next_cursor = base64.b64encode(raw_cursor.encode("utf-8")).decode("utf-8")
             rows = rows[:limit]
 
+        seen_files = set()
+        deduped_rows = []
         for r in rows:
-            cls._enrich_pending_interrupt(r)
+            if r.file_id not in seen_files:
+                seen_files.add(r.file_id)
+                cls._enrich_pending_interrupt(r)
+                deduped_rows.append(r)
 
-        return rows, next_cursor
+        return deduped_rows, next_cursor
 
     @classmethod
     async def resume_job(

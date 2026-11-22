@@ -32,11 +32,12 @@ class RunResult:
 def render_single_record(
     metadata: ArticleMetadata | Dict[str, Any],
     raw_bibitem: Optional[str] = None,
-    standalone: bool = True,
+    standalone: bool = False,
     template: Optional[str] = None,
+    raw_code_only: bool = True,
 ) -> str:
     """
-    Renders thebibliography LaTeX document (standalone or fragment) for a single record.
+    Renders pure \bibitem citation code for a single record.
     Assigns the deterministic citation key (FirstAuthorYear).
     If a template is provided, formats with format_bibitem_with_style.
     """
@@ -52,6 +53,9 @@ def render_single_record(
         # Fallback to standard formatting if raw_bibitem not provided
         from citegen.latex.bibitem import format_bibitem
         final_bibitem = format_bibitem(meta_obj, citation_key=base_key)
+
+    if raw_code_only:
+        return final_bibitem
 
     return render_tex_document([final_bibitem], standalone=standalone)
 

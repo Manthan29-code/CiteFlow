@@ -9,6 +9,16 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Spinner } from '@/components/common/Spinner';
 
+const cleanCitationCode = (raw: string): string => {
+  if (!raw) return '';
+  // Extract strictly the \bibitem citation snippet, stripping document preamble or thebibliography wrappers
+  const match = raw.match(/\\bibitem[\s\S]*?(?=\\end\{thebibliography\}|\\end\{document\}|$)/);
+  if (match) {
+    return match[0].trim();
+  }
+  return raw.trim();
+};
+
 export const TexPreviewDialog: React.FC = () => {
   const dispatch = useAppDispatch();
   const activeJobId = useAppSelector((state) => state.jobs.activeTexPreviewJobId);
@@ -48,7 +58,7 @@ export const TexPreviewDialog: React.FC = () => {
       downloadJobTex(activeJobId)
         .then((content) => {
           if (!ignore) {
-            setTexContent(content);
+            setTexContent(cleanCitationCode(content));
             setIsLoading(false);
           }
         })
@@ -124,7 +134,7 @@ export const TexPreviewDialog: React.FC = () => {
       const updatedJob = await transformJobStyle(activeJobId, styleId);
       dispatch(setJob(updatedJob));
       const updatedTex = await downloadJobTex(activeJobId);
-      setTexContent(updatedTex);
+      setTexContent(cleanCitationCode(updatedTex));
       dispatch(
         addToast({
           type: 'success',
@@ -149,8 +159,8 @@ export const TexPreviewDialog: React.FC = () => {
     <Modal
       isOpen={!!activeJobId}
       onClose={handleClose}
-      title="Generated LaTeX Citation (.tex)"
-      description="Your verified bibliographic citation is ready for compile."
+      title="Generated LaTeX Citation"
+      // description="Clean \bibitem code ready for your document."
       maxWidth="xl"
     >
       <div className="space-y-3 sm:space-y-4">
@@ -163,22 +173,7 @@ export const TexPreviewDialog: React.FC = () => {
             {error}
           </div>
         ) : (
-          <>
-            {/* Format Hint */}
-            <div className="p-3 rounded-xl bg-cream-100 border border-border-light text-[11px] font-mono text-charcoal/70 flex items-start gap-2">
-              <FileText className="w-3.5 h-3.5 text-indigo-brand shrink-0 mt-0.5" />
-              <div>
-                {isStandalone ? (
-                  <span>
-                    <strong>Standalone Document:</strong> Includes full document preamble. Note: requires the <code>\usepackage&#123;hyperref&#125;</code> package.
-                  </span>
-                ) : (
-                  <span>
-                    <strong>Bibliography Fragment:</strong> Place this snippet inside your paper&rsquo;s <code>\begin&#123;thebibliography&#125; ... \end&#123;thebibliography&#125;</code> environment.
-                  </span>
-                )}
-              </div>
-            </div>
+          <>       
 
             {/* Read-only Monospace Preview Area */}
             <div className="relative rounded-xl border border-charcoal-800 bg-charcoal-900 text-cream p-3 sm:p-4 font-mono text-xs overflow-auto max-h-[24dvh] sm:max-h-80 select-text leading-relaxed">
