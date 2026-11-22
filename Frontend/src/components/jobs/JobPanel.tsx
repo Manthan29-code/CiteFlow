@@ -164,7 +164,7 @@ export const JobPanel: React.FC = () => {
 
                 {isSucceeded && (
                   <p className="text-xs text-charcoal/70 font-sans leading-relaxed pt-1">
-                    Citation successfully resolved and formatted. Your LaTeX citation is ready to copy or download.
+                    Citation created successfully. LaTeX code for the citation is ready to download.
                   </p>
                 )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Download, Check, FileText, Wand2, ChevronDown, Loader2 } from 'lucide-react';
+import { Copy, Download, Check, Wand2, ChevronDown, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { closeGroupedTexModal, setJobs } from '@/store/slices/jobsSlice';
 import { addToast } from '@/store/slices/uiSlice';
@@ -8,6 +8,16 @@ import { getErrorMessage } from '@/api/errors';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Spinner } from '@/components/common/Spinner';
+
+const cleanGroupedCitationCode = (raw: string): string => {
+  if (!raw) return '';
+  // Extract all individual \bibitem citation snippets and separate with an empty line
+  const matches = raw.match(/\\bibitem[\s\S]*?(?=(?:\\bibitem|\\end\{thebibliography\}|\\end\{document\}|$))/g);
+  if (matches && matches.length > 0) {
+    return matches.map((m) => m.trim()).filter(Boolean).join('\n\n');
+  }
+  return raw.trim();
+};
 
 export const GroupedTexPreviewDialog: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -57,7 +67,7 @@ export const GroupedTexPreviewDialog: React.FC = () => {
           }
           const content = await downloadFolderTex(folderId, selectedStyleId);
           if (!ignore) {
-            setTexContent(content);
+            setTexContent(cleanGroupedCitationCode(content));
             setIsLoading(false);
           }
         } catch (err) {
@@ -134,7 +144,7 @@ export const GroupedTexPreviewDialog: React.FC = () => {
       const updatedJobs = await transformFolderStyle(folderId, styleId);
       dispatch(setJobs(updatedJobs));
       const updatedTex = await downloadFolderTex(folderId, styleId);
-      setTexContent(updatedTex);
+      setTexContent(cleanGroupedCitationCode(updatedTex));
       dispatch(
         addToast({
           type: 'success',
@@ -157,9 +167,8 @@ export const GroupedTexPreviewDialog: React.FC = () => {
     <Modal
       isOpen={!!folderId}
       onClose={handleClose}
-      title="Grouped LaTeX Citations (.tex)"
-      description={`Combined standalone LaTeX document for all verified citations in "${currentFolder?.name || 'this folder'}".`}
-      maxWidth="2xl"
+      title="Grouped LaTeX Citations"
+      maxWidth="3xl"
     >
       <div className="space-y-3 sm:space-y-4">
         {isLoading ? (
@@ -172,17 +181,6 @@ export const GroupedTexPreviewDialog: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Format Hint */}
-            <div className="p-3 rounded-xl bg-cream-100 border border-border-light text-[11px] font-mono text-charcoal/70 flex items-start gap-2">
-              <FileText className="w-3.5 h-3.5 text-indigo-brand shrink-0 mt-0.5" />
-              <div>
-                <span>
-                  <strong>Grouped Standalone Document:</strong> Includes document preamble and separate{' '}
-                  <code>\begin&#123;thebibliography&#125; ... \end&#123;thebibliography&#125;</code> blocks for each paper citation.
-                </span>
-              </div>
-            </div>
-
             {/* Read-only Monospace Preview Area */}
             <div className="relative rounded-xl border border-charcoal-800 bg-charcoal-900 text-cream p-3 sm:p-4 font-mono text-xs overflow-auto max-h-[30dvh] sm:max-h-96 select-text leading-relaxed">
               <pre className="m-0 font-mono whitespace-pre-wrap">{texContent}</pre>
@@ -210,7 +208,7 @@ export const GroupedTexPreviewDialog: React.FC = () => {
                     ) : (
                       <Wand2 className="w-3.5 h-3.5" />
                     )}
-                    <span>Transform Style</span>
+                    <span>Change Style</span>
                     <ChevronDown className="w-3 h-3 text-indigo-brand/70" />
                   </Button>
 
@@ -228,6 +226,9 @@ export const GroupedTexPreviewDialog: React.FC = () => {
                             className="w-full text-left px-3 py-1.5 hover:bg-cream-200 transition-colors flex items-center justify-between text-xs cursor-pointer"
                           >
                             <span className="truncate mr-2">{style.name}</span>
+                            {selectedStyleId === style.id && (
+                              <Check className="w-3.5 h-3.5 text-indigo-brand shrink-0" />
+                            )}
                           </button>
                         ))}
                       </div>
@@ -262,4 +263,3 @@ export const GroupedTexPreviewDialog: React.FC = () => {
     </Modal>
   );
 };
-

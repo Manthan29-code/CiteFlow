@@ -603,16 +603,16 @@ class JobService:
             except Exception:
                 await db.rollback()
 
-        # Construct grouped document with separate thebibliography blocks
-        blocks = [f"\\begin{{thebibliography}}{{99}}\n{b}\n\\end{{thebibliography}}" for b in bibitems]
-        body = "\n\n\n".join(blocks)
-        grouped_tex = (
-            "\\documentclass{article}\n"
-            "\\usepackage{hyperref}\n\n"
-            "\\begin{document}\n\n"
-            f"{body}\n\n\n"
-            "\\end{document}\n"
-        )
+        # Join individual clean citations with an empty line
+        clean_bibitems: List[str] = []
+        for b in bibitems:
+            m = re.search(r"(\\bibitem\{[^}]+\}.*?)(?=\\end\{thebibliography\}|\\end\{document\}|\Z)", b, re.DOTALL)
+            if m:
+                clean_bibitems.append(m.group(1).strip())
+            else:
+                clean_bibitems.append(b.strip())
+
+        grouped_tex = "\n\n".join(clean_bibitems) + "\n"
 
         clean_folder = re.sub(r"[^a-zA-Z0-9_\-]", "_", folder.name) or "citations"
         filename = f"{clean_folder}_citations.tex"

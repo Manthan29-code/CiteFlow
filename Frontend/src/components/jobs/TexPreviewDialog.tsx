@@ -161,7 +161,7 @@ export const TexPreviewDialog: React.FC = () => {
       onClose={handleClose}
       title="Generated LaTeX Citation"
       // description="Clean \bibitem code ready for your document."
-      maxWidth="xl"
+      maxWidth="3xl"
     >
       <div className="space-y-3 sm:space-y-4">
         {isLoading ? (
@@ -202,7 +202,7 @@ export const TexPreviewDialog: React.FC = () => {
                     ) : (
                       <Wand2 className="w-3.5 h-3.5" />
                     )}
-                    <span>Change The Style</span>
+                    <span>Change Style</span>
                     <ChevronDown className="w-3 h-3 text-indigo-brand/70" />
                   </Button>
 
