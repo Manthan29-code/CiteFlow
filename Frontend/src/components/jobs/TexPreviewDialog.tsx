@@ -202,7 +202,7 @@ export const TexPreviewDialog: React.FC = () => {
                     ) : (
                       <Wand2 className="w-3.5 h-3.5" />
                     )}
-                    <span>Transform Style</span>
+                    <span>Change The Style</span>
                     <ChevronDown className="w-3 h-3 text-indigo-brand/70" />
                   </Button>
 

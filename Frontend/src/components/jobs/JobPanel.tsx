@@ -14,6 +14,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   closeJobDrawer,
+  openJobDrawer,
   openTitleConfirmModal,
   openReviewModal,
   openTexPreviewModal,
