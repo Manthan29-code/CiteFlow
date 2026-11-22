@@ -254,21 +254,26 @@ def normalize_crossref(item: Dict[str, Any]) -> ArticleMetadata:
 
     # Journal Abbreviation
     journal_abbreviation: Optional[str] = None
-    # Check short-container-title
-    short_titles = item.get("short-container-title", [])
-    if short_titles and isinstance(short_titles, list) and short_titles[0]:
-        short_val = clean_whitespace(str(short_titles[0]))
-        if short_val:
-            journal_abbreviation = short_val
-            field_provenance["journal_abbreviation"] = "crossref"
-
-    # Curated abbreviation lookup
-    if not journal_abbreviation and journal:
-        curated_abbrev, abbrev_warn = get_journal_abbreviation(journal)
+    # 1. Curated abbreviation lookup from authoritative database
+    if journal:
+        curated_abbrev, _ = get_journal_abbreviation(journal)
         if curated_abbrev:
             journal_abbreviation = curated_abbrev
             field_provenance["journal_abbreviation"] = "curated_abbreviation"
-        elif abbrev_warn:
+
+    # 2. Check short-container-title from Crossref if not in curated database
+    if not journal_abbreviation:
+        short_titles = item.get("short-container-title", [])
+        if short_titles and isinstance(short_titles, list) and short_titles[0]:
+            short_val = clean_whitespace(str(short_titles[0]))
+            if short_val:
+                journal_abbreviation = short_val
+                field_provenance["journal_abbreviation"] = "crossref"
+
+    # 3. Fallback warning if still unknown
+    if not journal_abbreviation and journal:
+        _, abbrev_warn = get_journal_abbreviation(journal)
+        if abbrev_warn:
             warnings.append(abbrev_warn)
 
     # DOI

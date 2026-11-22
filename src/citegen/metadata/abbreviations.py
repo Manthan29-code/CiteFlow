@@ -124,6 +124,46 @@ _WORD_ABBREVIATIONS: Dict[str, str] = {
     "measurement": "Meas.",
     "measurements": "Meas.",
 
+    # Operations & Processing
+    "operation": "Oper.",
+    "operations": "Oper.",
+    "contribution": "Contrib.",
+    "contributions": "Contrib.",
+    "processing": "Process.",
+
+    # Surfaces & Coatings
+    "surface": "Surf.",
+    "surfaces": "Surf.",
+    "coating": "Coat.",
+    "coatings": "Coat.",
+
+    # Design, Energy & Particles
+    "design": "Des.",
+    "designs": "Des.",
+    "particle": "Part.",
+    "particles": "Part.",
+    "beam": "Beams",
+    "beams": "Beams",
+
+    # Spectroscopy & Transfer
+    "quantitative": "Quant.",
+    "radiative": "Radiat.",
+    "spectrometry": "Spectrom.",
+    "spectrometric": "Spectrom.",
+
+    # Phenomena & Relations
+    "related": "Relat.",
+    "relation": "Relat.",
+    "relations": "Relat.",
+    "phenomenon": "Phenom.",
+    "phenomena": "Phenom.",
+
+    # Conferences, Progress & Series
+    "conference": "Conf.",
+    "conferences": "Conf.",
+    "series": "Ser.",
+    "progress": "Prog.",
+
     # Math & Computing
     "mathematics": "Math.",
     "mathematical": "Math.",
@@ -162,7 +202,10 @@ _INTACT_ACADEMIC_WORDS = {
     "plasma", "plasmas", "fluid", "fluids", "solid", "solids",
     "acta", "laser", "lasers", "cell", "cells", "vacuum", "fusion",
     "wave", "waves", "nano", "matter", "energy", "chaos", "space",
-    "earth", "solar", "optics", "quantum", "light"
+    "earth", "solar", "optics", "quantum", "light",
+    "sources", "source", "devices", "device", "tables", "table",
+    "density", "densities", "transfer", "extremes", "extreme",
+    "mass", "data", "new", "high"
 }
 
 
@@ -254,12 +297,60 @@ def load_journal_abbreviations(path: Optional[Path] = None) -> Dict[str, str]:
     return mapping
 
 
+def normalize_journal_name(name: Optional[str]) -> str:
+    """Normalize journal name for comparison by lowercasing, expanding '&' to 'and', and stripping punctuation."""
+    if not name:
+        return ""
+    s = name.lower().replace("&", " and ")
+    s = re.sub(r"[\s\:\,\.\-\—\–\/]+", " ", s)
+    return s.strip()
+
+
+def get_canonical_journal_info(
+    journal_name: Optional[str], custom_path: Optional[Path] = None
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Look up canonical full journal name and standard abbreviation.
+    Matches exact, lowercase, or punctuation/space-normalized.
+    Returns:
+        (canonical_full_name, standard_abbreviation)
+    """
+    if not journal_name:
+        return None, None
+
+    clean = journal_name.strip()
+    norm = normalize_journal_name(clean)
+    if not norm:
+        return None, None
+
+    file_path = custom_path or _DEFAULT_DATA_PATH
+    if file_path.exists():
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    # 1. Exact / lowercase match
+                    clean_lower = clean.lower()
+                    for canonical_name, abbrev in data.items():
+                        if canonical_name.strip().lower() == clean_lower:
+                            return canonical_name.strip(), abbrev.strip()
+
+                    # 2. Punctuation-normalized match
+                    for canonical_name, abbrev in data.items():
+                        if normalize_journal_name(canonical_name) == norm:
+                            return canonical_name.strip(), abbrev.strip()
+        except Exception:
+            pass
+
+    return None, None
+
+
 def get_journal_abbreviation(
     journal_name: Optional[str], custom_path: Optional[Path] = None
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Look up journal abbreviation.
-    Tier 1: Check curated JSON database (journal_abbreviations.json).
+    Tier 1: Check curated JSON database (journal_abbreviations.json) using exact & normalized matching.
     Tier 2: Run ISO-4 7-rule algorithmic word-by-word derivation.
     Tier 3: Fallback with warning message if unknown.
     Returns:
@@ -269,12 +360,11 @@ def get_journal_abbreviation(
         return None, "No journal name provided"
 
     clean_name = journal_name.strip()
-    mapping = load_journal_abbreviations(custom_path)
-    lookup_key = clean_name.lower()
 
-    # Tier 1: Exact match in curated database
-    if lookup_key in mapping:
-        return mapping[lookup_key], None
+    # Tier 1: Canonical / curated lookup
+    canonical_name, canon_abbr = get_canonical_journal_info(clean_name, custom_path)
+    if canon_abbr:
+        return canon_abbr, None
 
     # Tier 2: Algorithmic ISO-4 word-by-word derivation
     derived = derive_journal_abbreviation_iso4(clean_name)

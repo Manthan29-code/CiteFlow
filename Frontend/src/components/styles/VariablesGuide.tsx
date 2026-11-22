@@ -67,7 +67,7 @@ const VARIABLES: VariableItem[] = [
     name: 'Journal Abbreviation',
     description: 'Standard ISO abbreviation for the journal.',
     fallback: 'Falls back to full journal title if absent',
-    example: 'J Phys D Appl Phys',
+    example: 'J. Phys. D: Appl. Phys.',
   },
   {
     tag: 'volume',

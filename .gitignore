@@ -12,3 +12,4 @@ output/
 samples/*.pdf
 tests/fixtures/tmp/
 local/
+scripts/

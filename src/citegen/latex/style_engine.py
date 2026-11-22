@@ -572,7 +572,7 @@ def get_sample_metadata() -> ArticleMetadata:
         ],
         year=2017,
         journal="Journal of Physics D: Applied Physics",
-        journal_abbreviation="J Phys D Appl Phys",
+        journal_abbreviation="J. Phys. D: Appl. Phys.",
         volume="50",
         issue="6",
         article_number="065201",

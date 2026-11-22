@@ -176,20 +176,45 @@ def merge_metadata(
     # Journal
     journal = rec_crossref.journal or rec_openalex.journal
     if rec_crossref.journal and rec_openalex.journal:
-        if rec_crossref.journal.lower() == rec_openalex.journal.lower():
-            journal = rec_crossref.journal
+        j_cr = rec_crossref.journal.strip()
+        j_oa = rec_openalex.journal.strip()
+        if j_cr.lower() == j_oa.lower():
+            journal = j_cr
             field_provenance["journal"] = "crossref"
         else:
-            conflicts.append(
-                {
-                    "field": "journal",
-                    "reason": f"Journal disagreement ('{rec_crossref.journal}' vs '{rec_openalex.journal}')",
-                    "crossref": rec_crossref.journal,
-                    "openalex": rec_openalex.journal,
-                }
+            from citegen.metadata.abbreviations import (
+                get_canonical_journal_info,
+                normalize_journal_name,
             )
-            journal = rec_crossref.journal
-            field_provenance["journal"] = "crossref"
+
+            canon_cr, _ = get_canonical_journal_info(j_cr)
+            canon_oa, _ = get_canonical_journal_info(j_oa)
+            norm_cr = normalize_journal_name(j_cr)
+            norm_oa = normalize_journal_name(j_oa)
+
+            if canon_cr and (canon_cr == canon_oa or norm_cr == norm_oa or not canon_oa):
+                # Automatically resolved via curated standard journal database
+                journal = canon_cr
+                field_provenance["journal"] = "curated_database"
+            elif canon_oa and (not canon_cr or norm_cr == norm_oa):
+                # Automatically resolved via curated standard journal database
+                journal = canon_oa
+                field_provenance["journal"] = "curated_database"
+            elif norm_cr == norm_oa:
+                # Same journal differing only by punctuation or whitespace formatting
+                journal = j_cr if len(j_cr) >= len(j_oa) else j_oa
+                field_provenance["journal"] = "crossref"
+            else:
+                conflicts.append(
+                    {
+                        "field": "journal",
+                        "reason": f"Journal disagreement ('{j_cr}' vs '{j_oa}')",
+                        "crossref": j_cr,
+                        "openalex": j_oa,
+                    }
+                )
+                journal = j_cr
+                field_provenance["journal"] = "crossref"
     elif rec_crossref.journal:
         journal = rec_crossref.journal
         field_provenance["journal"] = "crossref"
@@ -198,21 +223,53 @@ def merge_metadata(
         field_provenance["journal"] = "openalex"
 
     # Journal Abbreviation
-    journal_abbrev = rec_crossref.journal_abbreviation or rec_openalex.journal_abbreviation
-    if rec_crossref.journal_abbreviation:
+    from citegen.metadata.abbreviations import (
+        get_journal_abbreviation,
+        normalize_journal_name,
+    )
+
+    # 1. Authoritative standard abbreviation for the resolved journal always takes precedence
+    curated_abbr, _ = get_journal_abbreviation(journal) if journal else (None, None)
+
+    abbr_cr = (rec_crossref.journal_abbreviation or "").strip() or None
+    abbr_oa = (rec_openalex.journal_abbreviation or "").strip() or None
+
+    if curated_abbr:
+        journal_abbrev = curated_abbr
+        field_provenance["journal_abbreviation"] = "curated_abbreviation"
+    elif abbr_cr and abbr_oa:
+        if abbr_cr.lower() == abbr_oa.lower():
+            journal_abbrev = abbr_cr
+            field_provenance["journal_abbreviation"] = rec_crossref.field_provenance.get(
+                "journal_abbreviation", "crossref"
+            )
+        elif normalize_journal_name(abbr_cr) == normalize_journal_name(abbr_oa):
+            # Differ only by punctuation (e.g. missing periods) -> pick standard with periods
+            journal_abbrev = abbr_cr if "." in abbr_cr else abbr_oa
+            field_provenance["journal_abbreviation"] = "crossref"
+        else:
+            conflicts.append(
+                {
+                    "field": "journal_abbreviation",
+                    "reason": f"Journal abbreviation disagreement ('{abbr_cr}' vs '{abbr_oa}')",
+                    "crossref": abbr_cr,
+                    "openalex": abbr_oa,
+                }
+            )
+            journal_abbrev = abbr_cr
+            field_provenance["journal_abbreviation"] = "crossref"
+    elif abbr_cr:
+        journal_abbrev = abbr_cr
         field_provenance["journal_abbreviation"] = rec_crossref.field_provenance.get(
             "journal_abbreviation", "crossref"
         )
-    elif rec_openalex.journal_abbreviation:
+    elif abbr_oa:
+        journal_abbrev = abbr_oa
         field_provenance["journal_abbreviation"] = rec_openalex.field_provenance.get(
             "journal_abbreviation", "openalex"
         )
-    elif not journal_abbrev and journal:
-        from citegen.metadata.abbreviations import get_journal_abbreviation
-        derived_abbrev, _ = get_journal_abbreviation(journal)
-        if derived_abbrev:
-            journal_abbrev = derived_abbrev
-            field_provenance["journal_abbreviation"] = "curated_abbreviation"
+    else:
+        journal_abbrev = None
 
 
     # DOI URL

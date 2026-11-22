@@ -70,3 +70,32 @@ def test_different_works_refuse_merge():
     same, reason = records_describe_same_work(cr, oa)
     assert same is False
     assert "Conflicting DOIs" in (reason or "")
+
+
+def test_journal_and_abbrev_conflict_auto_resolved_via_curated_db():
+    # Crossref has colon; OpenAlex lacks colon
+    cr = ArticleMetadata(
+        title="Transition from single to multiple axial potential structure in expanding helicon plasma",
+        authors=[Author(surname="Ghosh", given_name="S.")],
+        year=2017,
+        journal="Journal of Physics D: Applied Physics",
+        journal_abbreviation="J Phys D Appl Phys",  # unpunctuated from Crossref
+        doi_url="https://doi.org/10.1088/1361-6463/aa5068",
+        field_provenance={"journal": "crossref", "journal_abbreviation": "crossref"},
+    )
+    oa = ArticleMetadata(
+        title="Transition from single to multiple axial potential structure in expanding helicon plasma",
+        authors=[Author(surname="Ghosh", given_name="S.")],
+        year=2017,
+        journal="Journal of Physics D Applied Physics",  # missing colon
+        journal_abbreviation="J. Phys. D: Appl. Phys.",
+        doi_url="https://doi.org/10.1088/1361-6463/aa5068",
+        field_provenance={"journal": "openalex", "journal_abbreviation": "curated_abbreviation"},
+    )
+
+    merged, conflicts, prov = merge_metadata(cr, oa)
+    # Conflict should be auto-resolved to canonical without prompting the user
+    assert len(conflicts) == 0
+    assert merged.journal == "Journal of Physics D: Applied Physics"
+    assert merged.journal_abbreviation == "J. Phys. D: Appl. Phys."
+
