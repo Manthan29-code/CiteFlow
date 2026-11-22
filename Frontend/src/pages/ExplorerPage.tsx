@@ -6,6 +6,7 @@ import { fetchStyles } from '@/store/slices/stylesSlice';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { FolderCitationActions } from '@/components/explorer/FolderCitationActions';
 import { Toolbar } from '@/components/explorer/Toolbar';
 import { FileList } from '@/components/explorer/FileList';
 import { NewFolderDialog } from '@/components/explorer/NewFolderDialog';
@@ -127,9 +128,10 @@ export const ExplorerPage: React.FC = () => {
 
         {/* Main Explorer Workspace */}
         <main className="flex-1 min-w-0 w-full px-3 pt-3 pb-[10px] sm:px-8 sm:pt-6 sm:pb-[10px] flex flex-col">
-          {/* Breadcrumb Hierarchy */}
-          <div className="mb-4 shrink-0">
+          {/* Breadcrumb Hierarchy & Folder Citation Actions (Above Search) */}
+          <div className="mb-4 shrink-0 flex items-center justify-between gap-3 min-h-[36px]">
             <Breadcrumbs breadcrumbs={breadcrumbs} currentFolderId={activeId} />
+            <FolderCitationActions />
           </div>
 
           {/* Action Toolbar */}

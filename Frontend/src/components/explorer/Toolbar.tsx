@@ -1,37 +1,21 @@
-import React, { useRef, useState, useMemo } from 'react';
-import { FolderPlus, Upload, Search, X, Sparkles, Loader2, FileText } from 'lucide-react';
+import React, { useRef } from 'react';
+import { FolderPlus, Upload, Search, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { openNewFolderModal, openStyleManagerModal, addToast } from '@/store/slices/uiSlice';
+import { openNewFolderModal, addToast } from '@/store/slices/uiSlice';
 import { setSearchQuery } from '@/store/slices/explorerSlice';
-import { setJobs, openGroupedTexModal } from '@/store/slices/jobsSlice';
 import { addUploads } from '@/store/slices/uploadSlice';
 import { Button } from '@/components/common/Button';
 import { StyleSelectorDropdown } from '@/components/styles/StyleSelectorDropdown';
 import { UploadQueueItem } from '@/types/api';
 import { env } from '@/lib/env';
 import { formatBytes } from '@/lib/format';
-import { createFolderJobs } from '@/api/jobs';
-import { getErrorMessage } from '@/api/errors';
 
 export const Toolbar: React.FC = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { searchQuery, folderData } = useAppSelector((state) => state.explorer);
-  const jobsById = useAppSelector((state) => state.jobs.jobsById);
-  const jobsByFileId = useAppSelector((state) => state.jobs.jobsByFileId);
-  const { styles, selectedStyleId } = useAppSelector((state) => state.styles);
   const currentFolder = folderData?.folder;
-
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
-
-  const pdfFiles = useMemo(() => {
-    return (folderData?.files || []).filter((f) => f.ext.toLowerCase() === 'pdf');
-  }, [folderData?.files]);
-
-  const succeededCount = useMemo(() => {
-    return pdfFiles.filter((f) => jobsByFileId[f.id]?.status === 'succeeded').length;
-  }, [pdfFiles, jobsByFileId]);
 
   const totalItems = (folderData?.folders.length || 0) + (folderData?.files.length || 0);
 
@@ -100,46 +84,6 @@ export const Toolbar: React.FC = () => {
     e.target.value = '';
   };
 
-  const handleGenerateFolderCitations = async () => {
-    if (!currentFolder?.id || isBatchGenerating) return;
-
-    if (styles.length === 0) {
-      dispatch(
-        addToast({
-          type: 'error',
-          message: "You can't generate citations when you don't have any citation style. Please add a style first.",
-        })
-      );
-      dispatch(openStyleManagerModal());
-      return;
-    }
-
-    setIsBatchGenerating(true);
-    try {
-      const jobs = await createFolderJobs(currentFolder.id, 'standalone', selectedStyleId);
-      dispatch(setJobs(jobs));
-      const newlyStarted = jobs.filter((j) => ['queued', 'running'].includes(j.status)).length;
-      dispatch(
-        addToast({
-          type: 'success',
-          message:
-            newlyStarted > 0
-              ? `Started citation generation for ${newlyStarted} files in "${currentFolder.name}".`
-              : `All citations in "${currentFolder.name}" are already generated or processing.`,
-        })
-      );
-    } catch (err: unknown) {
-      dispatch(
-        addToast({
-          type: 'error',
-          message: `Failed to start folder citations: ${getErrorMessage(err)}`,
-        })
-      );
-    } finally {
-      setIsBatchGenerating(false);
-    }
-  };
-
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-border-light">
       {/* Left Action Buttons */}
@@ -163,39 +107,6 @@ export const Toolbar: React.FC = () => {
           <Upload className="w-4 h-4 text-indigo-brand" />
           <span>Upload PDF</span>
         </Button>
-
-        {pdfFiles.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateFolderCitations}
-            disabled={isBatchGenerating}
-            className="gap-1.5 text-indigo-brand border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100/70 shadow-xs"
-            title={`Generate .tex citation for all ${pdfFiles.length} PDF files in "${currentFolder?.name || 'this folder'}"`}
-          >
-            {isBatchGenerating ? (
-              <Loader2 className="w-4 h-4 text-indigo-brand animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-indigo-brand" />
-            )}
-            <span>
-              {isBatchGenerating ? 'Starting...' : `Generate Folder .tex (${pdfFiles.length})`}
-            </span>
-          </Button>
-        )}
-
-        {succeededCount > 0 && currentFolder && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => dispatch(openGroupedTexModal(currentFolder.id))}
-            className="gap-1.5 text-indigo-brand border border-indigo-200 bg-white hover:bg-indigo-50/80 shadow-xs"
-            title={`View and download all ${succeededCount} citations combined in a single grouped .tex file`}
-          >
-            <FileText className="w-4 h-4 text-indigo-brand" />
-            <span>Grouped .tex ({succeededCount})</span>
-          </Button>
-        )}
 
         {/* Style Selector Dropdown */}
         <StyleSelectorDropdown />
@@ -234,8 +145,7 @@ export const Toolbar: React.FC = () => {
           )}
         </div>
 
-        {/* Items Count Badge */}
-        <span className="hidden lg:inline text-xs font-mono text-charcoal/50 uppercase tracking-wider">
+        <span className="text-[11px] font-mono text-charcoal/40 uppercase whitespace-nowrap hidden sm:inline-block">
           {totalItems} {totalItems === 1 ? 'item' : 'items'}
         </span>
       </div>

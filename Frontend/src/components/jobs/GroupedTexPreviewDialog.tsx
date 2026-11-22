@@ -167,7 +167,7 @@ export const GroupedTexPreviewDialog: React.FC = () => {
     <Modal
       isOpen={!!folderId}
       onClose={handleClose}
-      title="Grouped LaTeX Citations"
+      title="Grouped LaTeX Code"
       maxWidth="3xl"
     >
       <div className="space-y-3 sm:space-y-4">

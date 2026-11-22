@@ -159,7 +159,7 @@ export const TexPreviewDialog: React.FC = () => {
     <Modal
       isOpen={!!activeJobId}
       onClose={handleClose}
-      title="Generated LaTeX Citation"
+      title="Generated LaTeX Code"
       // description="Clean \bibitem code ready for your document."
       maxWidth="3xl"
     >
