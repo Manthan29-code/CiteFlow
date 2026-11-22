@@ -1229,7 +1229,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                 A, B and C
               </span>
               <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
-                Insert &apos;and&apos; without comma before the final author.
+                Insert &apos;and&apos; with a comma before the last author.
               </span>
             </label>
           </div>
@@ -1248,7 +1248,7 @@ export const VisualTemplateBuilder: React.FC<VisualTemplateBuilderProps> = ({
                 A, B, and C
               </span>
               <span className="text-[11px] text-charcoal/60 leading-normal block mt-0.5">
-                Insert &apos;, and&apos; with Oxford comma before the final author.
+                Insert &apos; and&apos; without a comma before the last author.
               </span>
             </label>
           </div>
